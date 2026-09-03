@@ -6,7 +6,9 @@ field by field, whether they agree â€” **Pass**, **Needs review**, or **Fail** â
 with a plain-English reason for each. The agent makes the final call.
 
 > Status: Day 1 scaffold. Placeholder UI, typed domain model, matcher and
-> extraction stubs. See `docs/build-plan.md` for the full 7-day plan.
+> extraction stubs. See `docs/build-plan.md` for the full 7-day plan,
+> `docs/devlog.md` for a step-by-step journal of the build, and
+> `docs/how-it-works.md` for how the app works under the hood.
 
 ## Setup & run
 

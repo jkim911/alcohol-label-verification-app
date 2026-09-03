@@ -33,3 +33,4 @@ matching engine or the UI.
 - Secrets only in `.env.local` (git-ignored, read by `app/config.py`); `.env.example` documents them.
 - Commit incrementally with clear messages — "committed incrementally" is a graded deliverable.
 - Keep the README's Setup / Approach / Assumptions & trade-offs sections current as decisions are made.
+- **Documentation for the author is mandatory.** The user needs to explain every part of this project themselves. At the end of every working session, append a dated entry to `docs/devlog.md` covering what was done and *why*, in plain language with the reasoning, and update `docs/how-it-works.md` whenever the architecture or request flow changes. Explain concepts (not just steps) the first time they appear.
