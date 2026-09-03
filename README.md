@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Old Tom Verify
 
-## Getting Started
+AI-assisted alcohol-label verification for TTB compliance review. Give it what
+the applicant submitted and a photo of the physical label; it tells an agent,
+field by field, whether they agree — **Pass**, **Needs review**, or **Fail** —
+with a plain-English reason for each. The agent makes the final call.
 
-First, run the development server:
+> Status: Day 1 scaffold. Placeholder UI, typed domain model, matcher and
+> extraction stubs. See `docs/build-plan.md` for the full 7-day plan.
+
+## Setup & run
+
+Requires Node 22 (`.nvmrc`) and npm.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # add your ANTHROPIC_API_KEY
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Other scripts:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test        # matching-engine unit tests (vitest)
+npm run lint
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Approach
 
-## Learn More
+- **Next.js App Router + TypeScript + Tailwind** — one repo, one deploy target; API routes are the backend, so there is no second service to stand up.
+- **One multimodal Claude call for extraction** (`src/lib/extract/`) with a strict JSON schema. A single structured-output call beats an OCR-then-NLP pipeline on both latency and accuracy against stylized label fonts, and it's one thing to time against the 5-second budget.
+- **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy for brand/class/address, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning. Unit-tested, no network.
+- **Batch mode** fans out client-side with a server-side concurrency cap (~8) — no queue infrastructure for a prototype.
+- **No storage.** The prototype is stateless by design.
+- **Deployed on Vercel** from the `main` branch.
 
-To learn more about Next.js, take a look at the following resources:
+## Assumptions & trade-offs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **No COLA integration.** Application data is entered in a form, loaded from a sample, or uploaded as CSV. Standalone proof-of-concept, per the interviews.
+- **Prototype-grade security.** No authentication and no persistence; nothing sensitive is stored. A production rollout would need auth, audit logging, and a data-retention policy.
+- **External vision API.** Extraction calls a cloud model. A production deployment behind TTB's firewall would need an on-prem OCR/vision model or an approved API allowlist.
+- **Government-warning bold weight is not detected.** Text, casing, and wording are checked exactly; typographic weight is flagged for manual check rather than guessed.
+- **Poor-quality images** (skew, glare, low light) are out of MVP scope. The tool reports "couldn't read this clearly" rather than guessing.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Sample fixtures
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`fixtures/` holds sample applications paired with label images by id, including
+deliberate mismatch cases (casing-only brand difference, ABV off by 0.2 vs 1.0,
+reworded and title-case warnings, address mismatch, import with no country of
+origin). See `fixtures/README.md`.
