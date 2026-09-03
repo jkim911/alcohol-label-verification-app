@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Old Tom Verify",
+  title: "Alcohol Verification App",
   description: "AI-assisted alcohol label verification for TTB compliance review.",
 };
 

@@ -1,5 +1,5 @@
 /**
- * Shared domain types for Old Tom Verify.
+ * Shared domain types for Alcohol Verification App.
  *
  * The seven fields come from the TTB reference section of the brief; the
  * three-state result and per-field tolerance policy come from the interviews

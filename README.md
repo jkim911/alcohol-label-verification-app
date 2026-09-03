@@ -1,4 +1,4 @@
-# Old Tom Verify
+# Alcohol Verification App
 
 AI-assisted alcohol-label verification for TTB compliance review. Give it what
 the applicant submitted and a photo of the physical label; it tells an agent,

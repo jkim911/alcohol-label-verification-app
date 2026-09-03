@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Old Tom Verify
+# Alcohol Verification App
 
 AI-assisted alcohol-label verification for TTB compliance agents. A take-home
 prototype built on a 7-day plan; the full spec is in `docs/build-plan.md` —

@@ -1,4 +1,4 @@
-# Old Tom Verify — Build Plan (7 days)
+# Alcohol Verification App — Build Plan (7 days)
 
 Source: the "Label Verification Build Plan" artifact. Reference this while
 implementing. Hard numbers: **<5s** result latency, **200–300** labels per

@@ -3,7 +3,7 @@ export default function Home() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 px-6 py-16">
       <header className="flex flex-col gap-3">
         <p className="text-sm font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-400">
-          Old Tom Verify
+          Alcohol Verification App
         </p>
         <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
           Check an alcohol label against its application in one glance.
