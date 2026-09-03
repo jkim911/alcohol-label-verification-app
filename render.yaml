@@ -1,0 +1,15 @@
+# Render blueprint: import the repo at https://dashboard.render.com and it
+# picks this up. Add ANTHROPIC_API_KEY in the service's Environment tab.
+services:
+  - type: web
+    name: alcohol-verification-app
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+      - key: ANTHROPIC_API_KEY
+        sync: false

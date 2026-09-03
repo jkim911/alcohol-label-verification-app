@@ -10,30 +10,30 @@ with a plain-English reason for each. The agent makes the final call.
 
 ## Setup & run
 
-Requires Node 22 (`.nvmrc`) and npm.
+Requires Python 3.12+ (3.13 recommended, see `.python-version`).
 
 ```bash
-npm install
-cp .env.example .env.local   # add your ANTHROPIC_API_KEY
-npm run dev                  # http://localhost:3000
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
+cp .env.example .env.local        # add your ANTHROPIC_API_KEY
+.venv/bin/uvicorn app.main:app --reload   # http://localhost:8000
 ```
 
-Other scripts:
+Other commands:
 
 ```bash
-npm test        # matching-engine unit tests (vitest)
-npm run lint
-npm run build
+.venv/bin/pytest          # matching-engine and app tests
+.venv/bin/ruff check .    # lint
 ```
 
 ## Approach
 
-- **Next.js App Router + TypeScript + Tailwind** — one repo, one deploy target; API routes are the backend, so there is no second service to stand up.
-- **One multimodal Claude call for extraction** (`src/lib/extract/`) with a strict JSON schema. A single structured-output call beats an OCR-then-NLP pipeline on both latency and accuracy against stylized label fonts, and it's one thing to time against the 5-second budget.
-- **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy for brand/class/address, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning. Unit-tested, no network.
-- **Batch mode** fans out client-side with a server-side concurrency cap (~8) — no queue infrastructure for a prototype.
+- **FastAPI + Jinja2 + HTMX, one service.** The same process serves the HTML pages and the JSON API, so there is nothing to bundle and only one thing to deploy.
+- **One multimodal Claude call for extraction** (`app/extract/`), parsed directly into a pydantic model. A single structured-output call beats an OCR-then-NLP pipeline on both latency and accuracy against stylized label fonts, and it's one thing to time against the 5-second budget.
+- **Pure-Python matching engine** (`app/matchers/`), one function per field, each with its own tolerance: fuzzy for brand/class/address, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning. Unit-tested with pytest, no network.
+- **Batch mode** processes uploads with an asyncio semaphore (~8 concurrent) and reports a live count — no queue infrastructure for a prototype.
 - **No storage.** The prototype is stateless by design.
-- **Deployed on Vercel** from the `main` branch.
+- **Deployed on Render** from the `main` branch via `render.yaml`.
 
 ## Assumptions & trade-offs
 

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="hero">
+  <p class="eyebrow">Alcohol Verification App</p>
+  <h1>Check an alcohol label against its application in one glance.</h1>
+  <p class="lede">
+    Upload a label photo and the application details. Each of the seven TTB fields
+    gets a Pass, Needs review, or Fail with a plain-English reason. You make the final call.
+  </p>
+</header>
+
+<nav class="modes" aria-label="Review modes">
+  <a class="mode is-disabled" href="/single" aria-disabled="true">
+    <span class="mode-title">🏷️ Review one label</span>
+    <span class="mode-sub">Coming on Day 3</span>
+  </a>
+  <a class="mode is-disabled" href="/batch" aria-disabled="true">
+    <span class="mode-title">📦 Review a batch</span>
+    <span class="mode-sub">Coming on Day 4</span>
+  </a>
+</nav>
+
+<p class="footnote">Day 1 placeholder. This URL will keep improving all week.</p>
+{% endblock %}
