@@ -7,11 +7,23 @@ LABELS = os.path.join(BASE, "labels")
 os.makedirs(APPS, exist_ok=True)
 os.makedirs(LABELS, exist_ok=True)
 
-F = "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
-FI = "/usr/share/fonts/truetype/liberation/LiberationSerif-Italic.ttf"
-FR = "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
-SANS = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-SANS_B = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+import sys
+from PIL import ImageFilter
+
+def find_font(*candidates):
+    """First font file that exists. Liberation on Linux, Times/Arial on macOS."""
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    raise FileNotFoundError(f"No font found among: {candidates}")
+
+MAC = "/System/Library/Fonts/Supplemental/"
+LIB = "/usr/share/fonts/truetype/liberation/"
+F = find_font(LIB + "LiberationSerif-Bold.ttf", MAC + "Times New Roman Bold.ttf")
+FI = find_font(LIB + "LiberationSerif-Italic.ttf", MAC + "Times New Roman Italic.ttf")
+FR = find_font(LIB + "LiberationSerif-Regular.ttf", MAC + "Times New Roman.ttf")
+SANS = find_font(LIB + "LiberationSans-Regular.ttf", MAC + "Arial.ttf")
+SANS_B = find_font(LIB + "LiberationSans-Bold.ttf", MAC + "Arial Bold.ttf")
 
 WARNING_STD = (
     "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not "
@@ -38,7 +50,7 @@ def wrap(draw, text, font, max_w):
     return lines
 
 def render(fixture_id, product_type, brand, class_type, abv, net_contents,
-           address, country_of_origin, warning_text, warning_bold_caps=True):
+           address, country_of_origin, warning_text, warning_bold_caps=True, degrade=False):
     W, H = 1000, 1400
     img = Image.new("RGB", (W, H), (235, 231, 218))
     d = ImageDraw.Draw(img)
@@ -109,6 +121,11 @@ def render(fixture_id, product_type, brand, class_type, abv, net_contents,
         d.text((margin + 56, ty), ln, font=f_rest, fill=(10, 10, 10))
         ty += 26
 
+    if degrade:
+        # Simulate a bad phone photo: heavy blur, slight tilt, washed-out contrast.
+        img = img.rotate(4, resample=Image.BICUBIC, expand=False, fillcolor=(235, 231, 218))
+        img = img.filter(ImageFilter.GaussianBlur(radius=7))
+        img = Image.blend(img, Image.new("RGB", img.size, (200, 196, 186)), 0.35)
     img.save(os.path.join(LABELS, f"{fixture_id}.png"))
 
 def write_app(fixture_id, product_type, brand, class_type, abv, net_contents,
@@ -193,7 +210,7 @@ FIXTURES = [
          class_type="Bordeaux Red Blend",
          abv=13, abv_label=13,
          net="750 mL",
-         addr="Meridien Imports LLC, 12 Bordeaux Way, France",
+         addr="Imported by Meridien Imports LLC, 12 Harbor St, Newark, NJ 07102",
          is_import=True, coo="France", coo_label=None,
          warning=WARNING_STD, warning_caps=True,
          expected="fail — import with no country of origin printed on label"),
@@ -217,6 +234,16 @@ FIXTURES = [
          is_import=False, coo=None,
          warning=WARNING_STD, warning_caps=True,
          expected="review — class/type word order changed"),
+    dict(id="blurry-unreadable", product="spirits",
+         app_brand="STONE'S THROW", label_brand="Stone's Throw",
+         class_type="Kentucky Straight Bourbon Whiskey",
+         abv=45, abv_label=45,
+         net="750 mL",
+         addr="Stone's Throw Distilling Co., 412 River Road, Bardstown, KY 40004",
+         is_import=False, coo=None,
+         warning=WARNING_STD, warning_caps=True,
+         degrade=True,
+         expected="unreadable — heavy blur; extraction should report low confidence, not a verdict"),
     dict(id="net-contents-unit-diff", product="beer",
          app_brand="Tidewater Lager", label_brand="Tidewater Lager",
          class_type="American Lager",
@@ -228,8 +255,12 @@ FIXTURES = [
          expected="pass — net contents unit differs, same volume"),
 ]
 
+only = set(sys.argv[1:])  # optional: regenerate just these ids (manifest is always rewritten in full)
 manifest = []
 for f in FIXTURES:
+    manifest.append({"id": f["id"], "product": f["product"], "expected": f["expected"]})
+    if only and f["id"] not in only:
+        continue
     class_type_app = f.get("class_type")
     class_type_label = f.get("class_type_label", class_type_app)
     addr_label = f.get("addr_label", f["addr"])
@@ -243,9 +274,8 @@ for f in FIXTURES:
     render(
         f["id"], f["product"], f["label_brand"], class_type_label,
         f["abv_label"], net_label, addr_label, coo_label,
-        f["warning"], f["warning_caps"],
+        f["warning"], f["warning_caps"], degrade=f.get("degrade", False),
     )
-    manifest.append({"id": f["id"], "product": f["product"], "expected": f["expected"]})
     print(f"wrote {f['id']}: {f['expected']}")
 
 with open(os.path.join(BASE, "FIXTURE_MANIFEST.json"), "w") as fh:

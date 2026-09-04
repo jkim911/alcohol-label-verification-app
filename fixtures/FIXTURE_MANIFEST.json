@@ -45,6 +45,11 @@
     "expected": "review \u2014 class/type word order changed"
   },
   {
+    "id": "blurry-unreadable",
+    "product": "spirits",
+    "expected": "unreadable \u2014 heavy blur; extraction should report low confidence, not a verdict"
+  },
+  {
     "id": "net-contents-unit-diff",
     "product": "beer",
     "expected": "pass \u2014 net contents unit differs, same volume"
