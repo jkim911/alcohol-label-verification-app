@@ -259,9 +259,36 @@ which would erase the intervening commits.
 single Next.js app because the plan's key constraint is latency and
 simplicity — one service, one deploy, and API routes mean no second server."
 
+### Switching the deploy target to AWS
+
+You asked for an industry-standard host instead of Vercel. Chosen:
+**AWS Amplify Hosting**, because it's the AWS service that understands
+Next.js out of the box (static pages to CloudFront, API routes to Lambda),
+deploys on every git push, and stays in the free tier. The alternatives
+considered: App Runner (Docker container, ~$5–15/month) and ECS Fargate
+with a load balancer (the full enterprise pattern, ~$20/month and a day of
+setup). Both were rejected as too much infrastructure for a 7-day
+prototype whose grading criteria don't mention hosting.
+
+Added `amplify.yml`, the build spec Amplify follows. Two non-obvious lines:
+
+- `nvm install 22 && nvm use 22` — Amplify's build image may default to an
+  older Node; this pins it to match `.nvmrc`.
+- `env | grep -e ANTHROPIC_API_KEY >> .env.production` — Amplify exposes
+  environment variables at *build* time only. Route handlers run later,
+  at request time, so the key has to be written into `.env.production`
+  during the build for the server code to see it. This is Amplify's
+  documented pattern for Next.js server-side secrets.
+
+**How to talk about it:** "It's deployed on AWS Amplify, which fronts the
+static pages with CloudFront and runs the API route on Lambda. I chose it
+over ECS because the prototype has no long-running process and no
+database, so managed serverless was the smallest footprint."
+
 ### Open items
 
-- Deploy to Vercel (needs your Vercel login) and add `ANTHROPIC_API_KEY` there.
+- Create an AWS account, connect the GitHub repo in Amplify Hosting, and
+  add `ANTHROPIC_API_KEY` under Environment variables.
 - Generate 8–12 fixture label images with paired application JSON
   (`fixtures/README.md` lists the scenarios).
 - Create `.env.local` with your Anthropic key before extraction work begins.

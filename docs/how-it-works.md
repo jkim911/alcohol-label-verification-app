@@ -22,7 +22,7 @@ Browser ──HTTP──▶ Next.js server ──▶ App Router matches the URL
 ```
 
 - **Next.js** is both the web framework and the server. In development
-  `next dev` runs it locally; on Vercel each route becomes a serverless
+  `next dev` runs it locally; on AWS Amplify each dynamic route becomes a Lambda
   function.
 - **App Router** means the folder structure under `src/app/` *is* the URL
   map: `src/app/page.tsx` → `/`, `src/app/api/extract/route.ts` → `/api/extract`.
@@ -96,8 +96,8 @@ the health warning is statutory text and must not.
 ## Where settings and secrets come from
 
 Next.js loads `.env.local` (git-ignored) into `process.env` on the server
-at startup. Locally you put `ANTHROPIC_API_KEY=...` there. On Vercel you set
-it under Project → Settings → Environment Variables. The code never contains
+at startup. Locally you put `ANTHROPIC_API_KEY=...` there. On Amplify you set
+it under App settings → Environment variables. The code never contains
 a key, and `.gitignore` blocks every `.env*` file except `.env.example`.
 
 ## How tests work
@@ -113,17 +113,36 @@ JavaScript, compiles Tailwind to CSS, and decides per route whether it can
 be pre-rendered (static) or must run on request (dynamic). The output table
 it prints is a quick sanity check that every route exists.
 
-## How deployment will work
+## How deployment works (AWS Amplify Hosting)
 
-Vercel connects to the GitHub repo. Every push to `main` triggers a build
-with the same `npm run build`; pages are served from a CDN and route
-handlers run as serverless functions. Preview deployments are created for
-other branches automatically.
+Amplify Hosting is AWS's git-connected hosting service. It's connected to
+the GitHub repo; every push to `main` triggers a build following
+`amplify.yml`:
+
+1. **preBuild** — switch to Node 22 (matching `.nvmrc`) and run `npm ci`,
+   which installs exactly what `package-lock.json` pins.
+2. **build** — copy `ANTHROPIC_API_KEY` from Amplify's environment into
+   `.env.production` (route handlers read it at request time), then
+   `npm run build`.
+3. **deploy** — Amplify uploads the `.next/` output. Static pages (like `/`)
+   go to **CloudFront**, AWS's CDN. Route handlers (like `/api/extract`) run
+   on **Lambda** functions that Amplify manages for you.
+
+So the Day 1 architecture on AWS is: CloudFront in front, Lambda for
+anything dynamic, no servers to patch. The first request to a cold Lambda
+adds roughly a second; the 5-second budget accounts for that.
+
+What Amplify is *not*: it isn't a container platform (that would be App
+Runner or ECS) and it doesn't give you a VPC or a database. For this
+prototype that's a feature — nothing to manage.
 
 ## Glossary
 
 - **ABV** — alcohol by volume, the percentage on the label.
+- **Amplify Hosting** — AWS's git-connected build-and-host service for web apps.
 - **App Router** — Next.js's folder-based routing under `src/app/`.
+- **CloudFront** — AWS's content delivery network; serves static files from edge locations.
+- **Lambda** — AWS's serverless functions; code that runs on demand without a server you manage.
 - **COLA** — Certificate of Label Approval, TTB's real application system. We mock its data; we don't integrate.
 - **TTB** — Alcohol and Tobacco Tax and Trade Bureau, the agency whose agents are the users.
 - **Route handler** — a `route.ts` file exporting `GET`/`POST` functions; Next.js's way to write a JSON API.

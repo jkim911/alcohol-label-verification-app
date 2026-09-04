@@ -12,7 +12,7 @@ matching engine or the UI.
 - Next.js 16 (App Router, `src/` dir) + TypeScript + Tailwind v4, npm, Node 22 (`.nvmrc`).
 - Label extraction: one Claude vision call via `@anthropic-ai/sdk` with a zod schema (`src/lib/extract/`). Load the `claude-api` skill before writing SDK code.
 - Matching engine: pure TypeScript in `src/lib/matchers/`, one function per field, tested with vitest (`npm test`).
-- Deploy: Vercel from GitHub `main`. No database in the MVP.
+- Deploy: AWS Amplify Hosting from GitHub `main` (`amplify.yml`). No database in the MVP.
 
 ## Non-negotiables (from the interviews)
 

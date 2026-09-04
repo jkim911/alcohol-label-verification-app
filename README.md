@@ -35,7 +35,7 @@ npm run build
 - **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy for brand/class/address, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning. Unit-tested, no network.
 - **Batch mode** fans out client-side with a server-side concurrency cap (~8) — no queue infrastructure for a prototype.
 - **No storage.** The prototype is stateless by design.
-- **Deployed on Vercel** from the `main` branch.
+- **Deployed on AWS Amplify Hosting** from the `main` branch. Amplify builds the app with `amplify.yml`, serves static pages from CloudFront, and runs the API route handlers on Lambda.
 
 ## Assumptions & trade-offs
 

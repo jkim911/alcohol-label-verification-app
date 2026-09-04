@@ -1,0 +1,25 @@
+# AWS Amplify Hosting build spec for this Next.js (App Router) app.
+# Amplify reads this on every push to the connected branch.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        # Match .nvmrc; Amplify's build image ships nvm.
+        - nvm install 22 && nvm use 22
+        - npm ci
+    build:
+      commands:
+        # Next.js route handlers run at request time on Amplify's compute
+        # layer, which only sees variables written to .env.production at
+        # build time. Copy the ones we need from the Amplify environment.
+        - env | grep -e ANTHROPIC_API_KEY >> .env.production || true
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
