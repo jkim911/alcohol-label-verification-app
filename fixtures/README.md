@@ -5,7 +5,7 @@ submitted, so reviewers can test without sourcing their own images.
 
 ```
 fixtures/
-  applications/<id>.json   # Application (see app/models.py)
+  applications/<id>.json   # Application (see src/lib/types.ts)
   labels/<id>.{png,jpg}    # the label image with the same id
 ```
 

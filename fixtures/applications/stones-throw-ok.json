@@ -1,11 +1,11 @@
 {
   "id": "stones-throw-ok",
-  "product_type": "spirits",
-  "brand_name": "STONE'S THROW",
-  "class_type": "Kentucky Straight Bourbon Whiskey",
-  "alcohol_content": 45,
-  "net_contents": "750 mL",
-  "bottler_name_address": "Stone's Throw Distilling Co., 412 River Road, Bardstown, KY 40004",
-  "is_import": false,
-  "country_of_origin": null
+  "productType": "spirits",
+  "brandName": "STONE'S THROW",
+  "classType": "Kentucky Straight Bourbon Whiskey",
+  "alcoholContent": 45,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Stone's Throw Distilling Co., 412 River Road, Bardstown, KY 40004",
+  "isImport": false,
+  "countryOfOrigin": null
 }

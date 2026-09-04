@@ -6,65 +6,74 @@ Updated whenever the architecture changes; see `docs/devlog.md` for history.
 ## The pieces
 
 ```
-Browser ──HTTP──▶ uvicorn ──ASGI──▶ FastAPI app ──▶ route function
-                                                     │
-                                  ┌──────────────────┼──────────────────┐
-                                  ▼                  ▼                  ▼
-                            Jinja2 template     app.extract        app.matchers
-                            (HTML page)         (Claude vision)    (pure Python)
-                                                     │                  │
-                                                     ▼                  ▼
-                                              LabelExtraction ──▶ list[FieldResult]
-                                                                        │
-                                                                        ▼
-                                                                  ReviewVerdict
+Browser ──HTTP──▶ Next.js server ──▶ App Router matches the URL
+                                        │
+                     ┌──────────────────┼──────────────────┐
+                     ▼                  ▼                  ▼
+               page.tsx            route.ts           src/lib/*
+               (React → HTML)      (JSON API)         (plain TypeScript)
+                                        │                  │
+                                        ▼                  ▼
+                                  lib/extract         lib/matchers
+                                  (Claude vision)     (pure functions)
+                                        │                  │
+                                        ▼                  ▼
+                                 LabelExtraction ──▶ FieldResult[] ──▶ ReviewVerdict
 ```
 
-- **uvicorn** is the server process. It opens a TCP port, speaks HTTP, and
-  converts each request into an ASGI event.
-- **ASGI** (Asynchronous Server Gateway Interface) is the contract between a
-  Python async server and a framework. It's why route functions are
-  `async def` and why one process can handle many slow API calls at once.
-- **FastAPI** matches the URL + method to a decorated function, validates the
-  inputs, calls the function, and serialises the return value.
-- **Jinja2** turns a template plus a context dict into HTML.
-- **pydantic models** (`app/models.py`) are the data contracts every layer
-  shares.
+- **Next.js** is both the web framework and the server. In development
+  `next dev` runs it locally; on Vercel each route becomes a serverless
+  function.
+- **App Router** means the folder structure under `src/app/` *is* the URL
+  map: `src/app/page.tsx` → `/`, `src/app/api/extract/route.ts` → `/api/extract`.
+- **React** components (`.tsx` files) describe the UI; Next.js renders them
+  to HTML on the server and sends that to the browser.
+- **`src/lib/`** is framework-free TypeScript: types, matchers, and the
+  extraction call. It knows nothing about React or HTTP.
 
 ## What happens on `GET /`
 
-1. uvicorn receives the request and passes it to FastAPI.
-2. FastAPI finds `home()` in `app/main.py`.
-3. `home()` calls `templates.TemplateResponse(request, "index.html")`.
-4. Jinja2 loads `index.html`, sees `{% extends "base.html" %}`, renders the
-   shell and fills the `content` block.
-5. The HTML references `/static/style.css`; the browser fetches it, and the
-   `StaticFiles` mount serves the file from `app/static/`.
+1. The request reaches the Next.js server.
+2. App Router resolves `/` to `src/app/page.tsx`, wrapped in
+   `src/app/layout.tsx`.
+3. Both are **server components**: they run on the server, produce HTML,
+   and the HTML is sent to the browser. No JavaScript is needed for this
+   page yet, so the build marks it *static* and pre-renders it once.
+4. Tailwind classes in the JSX were compiled into a CSS file at build time;
+   the browser loads that stylesheet.
 
 ## What happens on `POST /api/extract` (today)
 
-Returns HTTP 501 with `{"error": "Label extraction is not implemented yet."}`.
-The route exists so the API's shape is fixed before Day 2.
+App Router resolves the URL to `src/app/api/extract/route.ts` and calls its
+exported `POST` function. It returns `Response.json({...}, {status: 501})`:
+HTTP 501 Not Implemented with a JSON body. The route exists so the API's
+shape is fixed before Day 2.
 
 ## What will happen on `POST /api/extract` (Day 2 design)
 
-1. The upload arrives as multipart form data (`python-multipart` parses it).
-2. `app.extract.extract_label(image_bytes, media_type)` base64-encodes the
-   image and sends one request to Claude (`claude-opus-5`) with the image and
-   an instruction to read the seven fields. The SDK's `messages.parse` returns
-   a `LabelExtraction` directly, so there's no hand-written JSON parsing.
-3. The call is timed. The target is under ~3 s so the full verdict fits the
-   5 s budget.
-4. If the model reports low confidence, `unreadable_reason` is set and the UI
+1. The upload arrives as multipart form data; the handler reads it with
+   `await request.formData()`.
+2. `src/lib/extract` base64-encodes the image and sends one request to
+   Claude (`claude-opus-5`) via `@anthropic-ai/sdk`, with the image and an
+   instruction to read the seven fields. The response is validated against
+   a zod schema that mirrors `LabelExtraction`, so malformed output is
+   rejected rather than trusted.
+3. The call is timed. Target: under ~3 s so the full verdict fits the 5 s
+   budget.
+4. If the model reports low confidence, `unreadableReason` is set and the UI
    shows "we couldn't read this clearly" instead of a verdict.
+
+The API key lives in `process.env.ANTHROPIC_API_KEY` on the server. Route
+handlers never ship to the browser, so the key never does either.
 
 ## What will happen on a full review (Day 3 design)
 
 1. `Application` comes from the form (or a fixture, or a CSV row in batch).
 2. `LabelExtraction` comes from the step above.
-3. `app.matchers.match_all(application, extraction)` runs the seven matchers
-   in `LabelField` order. Each returns a `FieldResult`.
-4. `overall_status(fields)` takes the worst status among applicable fields.
+3. Each matcher in `MATCHERS` runs in `LABEL_FIELDS` order and returns a
+   `FieldResult`.
+4. The overall status is the worst among applicable fields
+   (`fail` > `review` > `pass`), skipping any marked `notApplicable`.
 5. The `ReviewVerdict` is rendered as a checklist: icon + word + reason per
    field, and a banner with the overall call. The agent confirms or overrides.
 
@@ -86,31 +95,40 @@ the health warning is statutory text and must not.
 
 ## Where settings and secrets come from
 
-`app/config.py` → `Settings` reads, in priority order: real environment
-variables, then `.env.local`, then `.env`. Locally you put
-`ANTHROPIC_API_KEY=...` in `.env.local` (git-ignored). On Render you set it in
-the dashboard. The code never contains a key.
+Next.js loads `.env.local` (git-ignored) into `process.env` on the server
+at startup. Locally you put `ANTHROPIC_API_KEY=...` there. On Vercel you set
+it under Project → Settings → Environment Variables. The code never contains
+a key, and `.gitignore` blocks every `.env*` file except `.env.example`.
 
 ## How tests work
 
-`pytest` discovers `tests/test_*.py`. `TestClient` (from Starlette, FastAPI's
-foundation) drives the app in-process — no server, no network — so the app
-tests run in milliseconds. Matcher tests are pure function calls.
+`npm test` runs vitest, which finds `src/**/*.test.ts`. Matcher tests are
+pure function calls: build an `Application` and a `LabelExtraction`, call
+the matcher, assert on the `FieldResult`. No server, no network.
 
-## How deployment works
+## How the build works
 
-Render reads `render.yaml`, runs `pip install -r requirements.txt`, then
-starts `uvicorn app.main:app` on the port it assigns. It polls `/health`;
-if that stops returning 200 the deploy is marked failed. Every push to
-`main` triggers a new deploy.
+`npm run build` type-checks every file, compiles TypeScript and JSX to
+JavaScript, compiles Tailwind to CSS, and decides per route whether it can
+be pre-rendered (static) or must run on request (dynamic). The output table
+it prints is a quick sanity check that every route exists.
+
+## How deployment will work
+
+Vercel connects to the GitHub repo. Every push to `main` triggers a build
+with the same `npm run build`; pages are served from a CDN and route
+handlers run as serverless functions. Preview deployments are created for
+other branches automatically.
 
 ## Glossary
 
 - **ABV** — alcohol by volume, the percentage on the label.
+- **App Router** — Next.js's folder-based routing under `src/app/`.
 - **COLA** — Certificate of Label Approval, TTB's real application system. We mock its data; we don't integrate.
 - **TTB** — Alcohol and Tobacco Tax and Trade Bureau, the agency whose agents are the users.
-- **Endpoint / route** — a URL + HTTP method that maps to one Python function.
+- **Route handler** — a `route.ts` file exporting `GET`/`POST` functions; Next.js's way to write a JSON API.
+- **Server component** — a React component that runs on the server and sends HTML, not JavaScript, to the browser.
 - **Fixture** — a sample input checked into the repo so anyone can test without their own data.
 - **Fuzzy match** — comparing strings by similarity score rather than exact equality.
-- **Multipart form** — the HTTP encoding browsers use to upload files.
 - **Stub** — a placeholder function whose signature is final but whose body isn't written yet.
+- **zod** — a library for declaring a data shape and validating unknown input against it.

@@ -1,9 +1,0 @@
-# Runtime (pinned by Render via pip; see pyproject.toml for dev extras)
-fastapi>=0.115
-uvicorn[standard]>=0.30
-jinja2>=3.1
-python-multipart>=0.0.9
-pydantic>=2.7
-pydantic-settings>=2.3
-anthropic>=1.0
-python-dotenv>=1.0

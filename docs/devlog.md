@@ -11,7 +11,7 @@ this file explains *how it got there*.
 
 ### 1. Understanding the brief
 
-The starting point was the "Label Verification Build Plan" (now saved as
+The starting point was the "Label Verification Build Plan" (saved as
 `docs/build-plan.md`). It reads the take-home's four interview transcripts and
 turns them into concrete acceptance criteria. The three that shape every
 technical decision:
@@ -28,16 +28,37 @@ Everything below is in service of those three.
 | Tool | What it is | Why we needed it |
 |---|---|---|
 | **Homebrew** (already present) | macOS package manager | Installs command-line tools |
+| **Node.js 22 + npm** (already present) | JavaScript runtime and its package manager | Runs Next.js and installs libraries |
 | **GitHub CLI (`gh`)** | Official command-line client for GitHub | Create the repo and push without touching the website. Installed with `brew install gh`. |
-| **Python 3.13** (already present) | Installed from python.org, at `/Library/Frameworks/Python.framework` | The app's language |
 
 **Logging in to GitHub.** `gh auth login --web` uses GitHub's *device flow*:
 the terminal prints a one-time code, you paste it at github.com/login/device,
 and GitHub hands the CLI a token. The token is stored in the macOS keychain.
-This matters because you never typed a password into a terminal, and the
-token has limited scopes (`repo`, `read:org`, `gist`).
+You never typed a password into a terminal, and the token has limited scopes
+(`repo`, `read:org`, `gist`).
 
-### 3. Creating the repository
+### 3. Scaffolding the app
+
+```bash
+npx create-next-app@latest alcohol-verification-app --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm
+```
+
+`npx` runs a package without installing it globally. `create-next-app` is the
+official generator for Next.js projects. The flags:
+
+| Flag | Meaning |
+|---|---|
+| `--ts` | TypeScript instead of plain JavaScript |
+| `--tailwind` | Tailwind CSS (utility classes like `flex`, `text-lg`) preconfigured |
+| `--eslint` | ESLint (a linter: catches bugs and style issues) preconfigured |
+| `--app` | Use the **App Router** (`src/app/` folder-based routing), not the older Pages Router |
+| `--src-dir` | Put code under `src/` instead of the repo root |
+| `--import-alias "@/*"` | `import x from "@/lib/types"` instead of `../../lib/types` |
+| `--use-npm` | Use npm (the only package manager on this Mac) |
+
+It also ran `git init` and made the first commit.
+
+### 4. Creating the repository
 
 ```bash
 gh repo create alcohol-verification-app --private --source=. --remote=origin --push
@@ -51,202 +72,196 @@ conventional name for the main one.
 The repo was first created as `old-tom-verify` (the plan's working title) and
 renamed with `gh repo rename`. GitHub keeps a redirect from the old name.
 
-### 4. A false start: the TypeScript scaffold
-
-The plan specified Next.js + TypeScript, so the first scaffold used that. You
-asked for Python instead, so the whole Next.js tree was deleted (`git rm`) and
-rebuilt. The git history still shows those commits — that's fine and normal;
-the history is honest about the change of direction. If asked: "The plan
-suggested a JavaScript stack. I chose Python because it's the language I'm
-strongest in, and the app's core, the matching engine, is pure logic where
-language choice doesn't affect the user."
-
-### 5. The Python project layout
+### 5. The project layout
 
 ```
 alcohol-verification-app/
-├── app/                    # the application package
-│   ├── __init__.py         # makes `app` importable as a package
-│   ├── main.py             # FastAPI app: routes for pages and JSON API
-│   ├── config.py           # settings loaded from .env.local / environment
-│   ├── models.py           # the data shapes everything else agrees on
-│   ├── matchers/           # field-by-field comparison logic (Day 3)
-│   ├── extract/            # the Claude vision call (Day 2)
-│   ├── templates/          # HTML pages (Jinja2)
-│   └── static/             # CSS (and later JS/images)
-├── tests/                  # pytest tests
-├── fixtures/               # sample applications + label images
-├── docs/                   # this file, the build plan, how-it-works
-├── requirements.txt        # runtime dependencies (what Render installs)
-├── requirements-dev.txt    # runtime + test/lint tools (what you install locally)
-├── pyproject.toml          # project metadata + ruff/pytest config
-├── render.yaml             # deploy blueprint for Render
-├── .python-version         # "3.13" — which Python this expects
-├── .env.example            # documents the secrets; the real .env.local is git-ignored
-└── .venv/                  # virtual environment (git-ignored, machine-local)
+├── src/
+│   ├── app/                     # App Router: folders = URLs
+│   │   ├── layout.tsx           # the HTML shell every page shares
+│   │   ├── page.tsx             # the home page  (URL: /)
+│   │   ├── globals.css          # Tailwind import + a few CSS variables
+│   │   └── api/extract/route.ts # JSON endpoint (URL: /api/extract)
+│   └── lib/                     # plain TypeScript, no React
+│       ├── types.ts             # the data shapes everything else agrees on
+│       ├── matchers/index.ts    # field-by-field comparison logic (Day 3)
+│       ├── matchers/matchers.test.ts
+│       └── extract/README.md    # where the Claude vision call goes (Day 2)
+├── public/                      # static files served as-is
+├── fixtures/                    # sample applications + label images
+├── docs/                        # build plan, this journal, how-it-works
+├── package.json                 # project name, scripts, dependency list
+├── package-lock.json            # exact versions installed (commit it)
+├── tsconfig.json                # TypeScript compiler settings
+├── next.config.ts               # Next.js settings (empty for now)
+├── postcss.config.mjs           # wires Tailwind v4 into the CSS pipeline
+├── eslint.config.mjs            # lint rules (Next.js defaults)
+├── vitest.config.mts            # test runner settings
+├── .nvmrc                       # "22" — which Node version this expects
+├── .env.example                 # documents the secrets; real .env.local is git-ignored
+└── node_modules/                # installed packages (git-ignored, rebuildable)
 ```
 
-### 6. The virtual environment
+### 6. Dependencies
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt
-```
+`npm install <pkg>` downloads a package into `node_modules/` and records it
+in `package.json`. `-D` marks it a *dev* dependency: needed to build and test,
+not needed at runtime. `package-lock.json` pins the exact version of every
+package (including packages' own dependencies) so every machine installs the
+same thing.
 
-A **virtual environment** is a private copy of Python plus its own
-`site-packages` folder, so this project's libraries don't collide with any
-other project's. `.venv/bin/python` is the interpreter; `.venv/bin/pip`
-installs into it. It's git-ignored because it's machine-specific and
-rebuildable from `requirements*.txt` in seconds.
+| Package | Kind | Role |
+|---|---|---|
+| `next` | runtime | The framework: routing, server rendering, API routes, build tooling |
+| `react`, `react-dom` | runtime | The UI library Next.js is built on |
+| `@anthropic-ai/sdk` | runtime | Official Claude SDK, used for the vision extraction call |
+| `zod` | runtime | Schema validation: define a shape, validate unknown data against it (used for the model's JSON output and API input) |
+| `typescript` | dev | The TypeScript compiler / type checker |
+| `tailwindcss`, `@tailwindcss/postcss` | dev | Tailwind v4 and its build plugin |
+| `eslint`, `eslint-config-next` | dev | Linter and Next.js's rule set |
+| `vitest` | dev | Test runner (fast, TypeScript-native) |
+| `@types/node`, `@types/react`, `@types/react-dom` | dev | Type definitions so TypeScript understands Node and React APIs |
 
-**Why two requirements files?** `requirements.txt` is the minimum needed to
-*run* the app — Render installs exactly this. `requirements-dev.txt` starts
-with `-r requirements.txt` and adds pytest, httpx (needed by FastAPI's test
-client), and ruff. Production stays lean; developers get the tools.
+**A snag worth remembering:** installing vitest failed with a *peer dependency*
+conflict — vitest wanted `@types/node` 22+, the scaffold had pinned 20. Fix:
+`npm install -D @types/node@^22`, which also matches the Node 22 in `.nvmrc`.
 
-**What each runtime dependency does:**
-
-| Package | Role |
-|---|---|
-| `fastapi` | The web framework: turns Python functions into HTTP endpoints |
-| `uvicorn` | The server that actually listens on a port and hands requests to FastAPI |
-| `jinja2` | Template engine: HTML files with `{{ variables }}` and `{% blocks %}` |
-| `python-multipart` | Lets FastAPI parse file uploads (needed for label images) |
-| `pydantic` | Data validation: define a class, get parsing + type checking for free |
-| `pydantic-settings` | Reads settings from environment variables and `.env` files into a pydantic class |
-| `anthropic` | Official Claude SDK, used for the vision extraction call |
-| `python-dotenv` | Loads `.env` files; pydantic-settings uses it under the hood |
-
-### 7. `app/models.py` — the shared vocabulary
+### 7. `src/lib/types.ts` — the shared vocabulary
 
 This is the most important file to understand, because every other module
 imports from it.
 
-- **`LabelField`** is a `StrEnum` of the seven fields TTB checks. Using an
-  enum instead of loose strings means a typo like `"brand_nmae"` is an error
-  at import time, not a silent bug.
+- **`LABEL_FIELDS`** is a readonly array of the seven field keys (`as const`
+  makes TypeScript treat it as exact literals, not just `string[]`).
+  **`LabelField`** is the union type derived from it, so a typo like
+  `"brandNmae"` is a compile error.
+- **`LABEL_FIELD_NAMES`** maps each key to the words shown in the UI.
 - **`Application`** is what the applicant submitted. It stands in for COLA
   data (the brief says explicitly not to integrate with COLA).
 - **`LabelExtraction`** is what the vision model read off the label. Every
-  field is `Optional` (`str | None`) on purpose: "not found on the label" must
-  be representable, distinct from an empty string. It also carries a
-  `confidence` score and an `unreadable_reason` so a bad photo produces an
-  honest "we couldn't read this", never a guess.
-- **`FieldResult`** is one row of the verdict: the field, its `status`, what
-  was expected, what was found, and a `reason` in plain English. The `reason`
-  is the thing agents actually read.
-- **`ReviewVerdict`** bundles the seven `FieldResult`s with an `overall`
-  status and `duration_ms`, so every response records whether it met the
-  5-second budget.
-- **`FieldStatus`** is `Literal["pass", "review", "fail"]` — three values,
-  enforced by the type. **`overall_status()`** picks the worst one across the
-  applicable fields, skipping any marked `not_applicable` (e.g. country of
-  origin on a domestic product).
+  field is `string | null` on purpose: "not found on the label" must be
+  representable, distinct from an empty string. It also carries a
+  `confidence` number and an optional `unreadableReason` so a bad photo
+  produces an honest "we couldn't read this", never a guess.
+- **`FieldStatus`** is `"pass" | "review" | "fail"` — three values, enforced
+  by the type.
+- **`FieldResult`** is one row of the verdict: field, status, `expected`,
+  `actual`, and a `reason` in plain English. The `reason` is what agents read.
+- **`ReviewVerdict`** bundles the seven results with an `overall` status and
+  `durationMs`, so every response records whether it met the 5-second budget.
 
-All of these are pydantic `BaseModel`s. That gives us: validation when data
-comes in (a string where a float belongs is rejected), `.model_dump()` to turn
-them into JSON, and automatic OpenAPI docs at `/docs`.
+### 8. `src/lib/matchers/index.ts` — the comparison engine (stubbed)
 
-### 8. `app/matchers/` — the comparison engine (stubbed)
-
-One function per field, all with the same signature:
-`(application, extraction) -> FieldResult`. Today each raises
-`NotImplementedError`, but the *policy* for each is written in a comment,
-straight from the plan's §03 table. The `MATCHERS` dict maps each
-`LabelField` to its function, and `match_all()` runs them in order.
+One function per field, all with the same signature (the `Matcher` type):
+`(application, extraction) => FieldResult`. Today each throws
+"not implemented", but the *policy* for each is written in a comment,
+straight from the plan's §03 table. `MATCHERS` maps each `LabelField` to its
+function.
 
 Design rules for this module, and why they matter in an interview:
 
-- **Pure functions.** No network, no file I/O, no global state. Input in,
-  result out. That's what makes them trivially testable.
+- **Pure functions.** No network, no file I/O, no React. Input in, result
+  out. That's what makes them trivially testable.
 - **Different tolerance per field.** Brand names are fuzzy ("STONE'S THROW"
   equals "Stone's Throw"), ABV allows ±0.3, but the government warning is
   exact because applicants try to sneak changes past reviewers. A single
   global "similarity threshold" would be wrong for at least one field.
 
-### 9. `tests/` — what's tested and what's parked
+### 9. Tests
 
-- `test_models.py` — three real tests for `overall_status()`. They pass.
-- `test_app.py` — uses FastAPI's `TestClient` to hit `/`, `/health`, and
-  `/api/extract` without starting a server. They pass.
-- `test_matchers.py` — 25 test cases, each named for a specific edge case from
-  the plan (e.g. `test_title_case_heading_fails`), all marked
-  `@pytest.mark.skip` until Day 3. This is deliberate: the test names *are*
-  the spec, so implementing a matcher means turning its skips into asserts.
+`src/lib/matchers/matchers.test.ts` holds 25 cases, each named for a specific
+edge case from the plan (e.g. `title-case "Government Warning:" → fail`),
+all marked `it.todo` until Day 3. This is deliberate: the test names *are*
+the spec, so implementing a matcher means turning its todos into asserts.
 
-Run with `.venv/bin/pytest`. Today: **6 passed, 25 skipped**.
+`vitest.config.mts` tells vitest to run in a plain Node environment (no
+browser simulation needed for pure functions) and to understand the `@/`
+import alias. The `.mts` extension marks it as an ES module, which vitest
+prefers. Run with `npm test`. Today: **25 todo, 0 failing**.
 
-### 10. `app/main.py` — the web app
+### 10. `src/app/` — pages and the API route
 
-- `app = FastAPI(...)` creates the application object.
-- `app.mount("/static", StaticFiles(...))` serves `app/static/` as files.
-- `templates = Jinja2Templates(...)` points at `app/templates/`.
-- `@app.get("/")` renders `index.html`. `@app.get("/health")` returns
-  `{"status": "ok"}` — Render pings this to know the service is alive.
-- `@app.post("/api/extract")` returns HTTP **501 Not Implemented** with a JSON
-  error. The route exists now so the deployed URL has an API surface and the
-  URL is fixed before the real implementation lands.
+Next.js's App Router turns folders into URLs:
 
-The functions are `async def` because FastAPI runs on an *asynchronous*
-server (ASGI). That's what will let batch mode process ~8 labels
-concurrently later without threads.
+- `src/app/layout.tsx` — the HTML shell (`<html>`, `<body>`, fonts, the
+  page `<title>` via `metadata`). Every page renders inside it.
+- `src/app/page.tsx` — the home page at `/`. A React component returning
+  JSX (HTML-like syntax) styled with Tailwind classes. Today it's the Day 1
+  placeholder with the two review modes disabled.
+- `src/app/api/extract/route.ts` — the API endpoint at `/api/extract`.
+  Exporting a function named `POST` handles POST requests. Today it returns
+  HTTP **501 Not Implemented** with a JSON error, so the URL exists and its
+  shape is fixed before the real implementation lands.
 
-### 11. Templates and CSS
+These route files run on the *server* (Next.js server components and route
+handlers), which is why the Claude API key never reaches the browser.
 
-- `base.html` is the page shell: `<head>`, the stylesheet link, and the HTMX
-  script tag. Every page `{% extends "base.html" %}` and fills the
-  `content` block.
-- `index.html` is the Day 1 placeholder with the two review modes disabled.
-- `style.css` is hand-written, no framework. Large base font (18px), high
-  contrast, and a small palette with named `--pass` / `--review` / `--fail`
-  colours, matching the plan's "built for Sarah's mother" rule.
-- **HTMX** is a small JS library that lets HTML elements make requests and
-  swap in the response (`hx-post`, `hx-target`). It's loaded from a CDN but
-  not used yet; it will drive the upload → verdict flow without writing a
-  JavaScript app.
+### 11. Styling
+
+Tailwind v4 is imported with one line in `globals.css` (`@import "tailwindcss"`)
+and wired in through `postcss.config.mjs`. Components use utility classes
+(`text-3xl`, `grid`, `rounded-lg`) instead of separate CSS files. The plan's
+UX rules — large type, high contrast, every icon paired with a word — are
+applied directly in `page.tsx`.
 
 ### 12. Configuration and secrets
 
-`app/config.py` defines a `Settings` class (pydantic-settings). On startup it
-reads `.env` then `.env.local`, then real environment variables, into typed
-fields: `anthropic_api_key`, `verdict_budget_ms` (5000), `batch_concurrency`
-(8). `.env.example` shows what to fill in; `.gitignore` blocks every `.env*`
-file *except* `.env.example`, so a key can't be committed by accident. On
-Render the key is set in the dashboard and arrives as an environment variable.
+`.env.example` documents `ANTHROPIC_API_KEY`. Next.js automatically loads
+`.env.local` into `process.env` on the server. `.gitignore` blocks every
+`.env*` file *except* `.env.example`, so a key can't be committed by
+accident. On Vercel the key is set in the project's Environment Variables.
 
-### 13. Linting and formatting
+### 13. Linting, building, testing
 
-**ruff** is both a linter and a formatter. Config lives in `pyproject.toml`:
-100-character lines, rules for errors (E/F), import order (I), modern syntax
-(UP), and common bugs (B). `ruff check .` reports; `ruff format .` rewrites.
-Both are clean as of this entry.
+- `npm run lint` — ESLint with Next.js's rules. Clean.
+- `npm run build` — compiles TypeScript, type-checks, and produces the
+  production bundle. Its output lists every route and whether it's static
+  (`/`) or server-rendered on demand (`/api/extract`). Clean.
+- `npm test` — vitest. 25 todo.
 
-### 14. Deployment plan
-
-`render.yaml` is a **blueprint**: when you import the repo on Render it reads
-this file and creates a web service with `pip install -r requirements.txt` as
-the build step and `uvicorn app.main:app --host 0.0.0.0 --port $PORT` as the
-start command. `$PORT` is provided by Render. `ANTHROPIC_API_KEY` is marked
-`sync: false`, meaning "prompt me for it in the dashboard, don't store it in
-the repo". Still to do: the actual import, which needs your Render login.
-
-### 15. Commits so far
+### 14. Commits on Day 1
 
 ```
-03f02ac Rebuild scaffold in Python: FastAPI + Jinja2/HTMX, pytest, Render
 73cf83d Rename project to Alcohol Verification App
-f865aea Track .env.example and make vitest config ESM-clean   (TS era)
-d9e2be4 Scaffold domain model, matcher stubs, API route...    (TS era)
-9f3574a Add Anthropic SDK, zod, vitest, and env/tooling config (TS era)
-0a4bf1c Initial commit from Create Next App                    (TS era)
+f865aea Track .env.example and make vitest config ESM-clean
+d9e2be4 Scaffold domain model, matcher stubs, API route, and project docs
+9f3574a Add Anthropic SDK, zod, vitest, and env/tooling config
+0a4bf1c Initial commit from Create Next App
 ```
 
 Commits are small and descriptive on purpose: "committed incrementally" is a
 graded deliverable.
 
-### Open items after Day 1
+---
 
-- Import the repo on Render and add the API key.
+## Day 2 — 2026-09-04 — A detour and back
+
+Late on Day 1 the stack was switched to Python (FastAPI + Jinja2) at your
+request, then switched back to this TypeScript version. Both moves are in
+the git history (`03f02ac` rebuilt in Python, `cd6167a` added docs, then
+this revert). Nothing from the Python version survives in the tree except
+these docs, rewritten for TypeScript.
+
+**How the revert was done, in case you're asked:**
+
+```bash
+git rm -r app tests pyproject.toml requirements*.txt render.yaml .python-version
+git checkout 73cf83d -- .     # restore every file as it was at that commit
+npm install                   # rebuild node_modules from package-lock.json
+```
+
+`git checkout <commit> -- .` copies the files from an old commit into the
+working tree without moving `HEAD`, so the history stays linear and the
+restore is just another commit. That's preferable to `git reset --hard`,
+which would erase the intervening commits.
+
+**How to talk about it:** "I evaluated a Python backend, but kept the
+single Next.js app because the plan's key constraint is latency and
+simplicity — one service, one deploy, and API routes mean no second server."
+
+### Open items
+
+- Deploy to Vercel (needs your Vercel login) and add `ANTHROPIC_API_KEY` there.
 - Generate 8–12 fixture label images with paired application JSON
   (`fixtures/README.md` lists the scenarios).
-- Create `.env.local` with your Anthropic key before Day 2.
+- Create `.env.local` with your Anthropic key before extraction work begins.

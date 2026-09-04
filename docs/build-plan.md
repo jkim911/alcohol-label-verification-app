@@ -39,12 +39,12 @@ Fewest moving parts to deploy; fewest network hops between upload and verdict.
 
 | Concern | Choice | Why |
 |---------|--------|-----|
-| Frontend + API | FastAPI + Jinja2 templates + HTMX (Python) | One service, one deploy; the same process serves pages and the JSON API. No bundler. |
-| Label extraction | One multimodal Claude call (`claude-opus-5`) parsed into a pydantic model | Beats OCR-then-NLP on latency and accuracy against stylized fonts; one thing to time. |
-| Matching engine | Pure Python, one matcher per field, pytest | Zero network cost, deterministic; where correctness is graded. |
-| Batch processing | Client-triggered fan-out, asyncio semaphore cap ~8 | No queue/worker infra; a capped semaphore avoids rate limits. |
+| Frontend + API | Next.js (App Router) + TypeScript + Tailwind | One repo, one deploy target; API routes are the backend. |
+| Label extraction | One multimodal LLM call (Claude) with a JSON-schema prompt | Beats OCR-then-NLP on latency and accuracy against stylized fonts; one thing to time. |
+| Matching engine | Pure TypeScript, one matcher per field, unit-tested | Zero network cost, deterministic; where correctness is graded. |
+| Batch processing | Client-triggered fan-out, server concurrency cap ~8 | No queue/worker infra; a capped promise pool avoids rate limits. |
 | Storage | None for MVP | Stateless is a feature here. |
-| Deploy | Render from GitHub `main` (`render.yaml`) | Push-to-deploy, free tier; deploy a placeholder on Day 1. |
+| Deploy | Vercel from GitHub `main` | Push-to-deploy; deploy a placeholder on Day 1. |
 
 Marcus's firewall story is context for a future production rollout, not a
 constraint on this prototype. Use the cloud vision API and name the dependency
@@ -94,12 +94,12 @@ Deploy on Day 1, not Day 7. Assume ~4–6 focused hours/day.
 
 | Day | Theme | Work | Ship |
 |-----|-------|------|------|
-| 1 | Setup | Init FastAPI + Jinja/HTMX; connect Render, deploy placeholder. Define shared types (Application, LabelExtraction, FieldResult, ReviewVerdict). Generate 8–12 sample label images across beer/wine/spirits with paired application JSON, including deliberate mismatches (casing, wrong ABV, reworded warning, lowercase warning, address mismatch, missing origin on an import). | Live placeholder URL + fixture set |
+| 1 | Setup | Init Next.js + TS + Tailwind; connect Vercel, deploy placeholder. Define shared types (Application, LabelExtraction, FieldResult, ReviewVerdict). Generate 8–12 sample label images across beer/wine/spirits with paired application JSON, including deliberate mismatches (casing, wrong ABV, reworded warning, lowercase warning, address mismatch, missing origin on an import). | Live placeholder URL + fixture set |
 | 2 | Extraction | Vision call with strict JSON-schema prompt for all seven fields; `/api/extract`; test against every fixture and log latency; tune until extraction is comfortably under ~3s; unreadable/low-confidence as its own state. | Extraction endpoint, timed against every fixture |
 | 3 | Matching + single flow | Each matcher from §03 as a pure testable function; unit-test edge cases by name; single-review UI end to end. | A real label in, a real verdict out |
 | 4 | Batch mode | CSV template + parser; multi-file/zip upload paired by ID; concurrency-capped processing with live count; results dashboard with filter/sort, drill-down, CSV export. | 300-row CSV in, full results table out |
 | 5 | Polish | Accessibility pass (type scale, contrast, icon+label, touch targets); plain-English error states with a next action; "Try a sample label" on both flows; responsive check. | A version you could hand to Sarah's mother |
-| 6 | Test, deploy, one stretch | Full manual pass across fixtures plus 2–3 fresh edge cases; confirm 5s budget under a real batch; promote to production on Render; verify from incognito. Pick exactly one §06 item if time remains. | Production URL, verified cold |
+| 6 | Test, deploy, one stretch | Full manual pass across fixtures plus 2–3 fresh edge cases; confirm 5s budget under a real batch; promote to production; verify from incognito. Pick exactly one §06 item if time remains. | Production URL, verified cold |
 | 7 | Docs + buffer | README: setup, approach, assumptions & trade-offs (no COLA, prototype security, external vision API vs. firewall, warning-boldness unimplemented); optional GIF of both flows; final cold-browser QA; submit. | Repo + README + deployed URL |
 
 ## 06 · Stretch goals (pick one, only after the core is solid)
