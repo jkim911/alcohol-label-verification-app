@@ -42,26 +42,28 @@ Browser ──HTTP──▶ Next.js server ──▶ App Router matches the URL
 4. Tailwind classes in the JSX were compiled into a CSS file at build time;
    the browser loads that stylesheet.
 
-## What happens on `POST /api/extract` (today)
+## What happens on `POST /api/extract`
 
-App Router resolves the URL to `src/app/api/extract/route.ts` and calls its
-exported `POST` function. It returns `Response.json({...}, {status: 501})`:
-HTTP 501 Not Implemented with a JSON body. The route exists so the API's
-shape is fixed before Day 2.
-
-## What will happen on `POST /api/extract` (Day 2 design)
-
-1. The upload arrives as multipart form data; the handler reads it with
-   `await request.formData()`.
-2. `src/lib/extract` base64-encodes the image and sends one request to
-   Claude (`claude-opus-5`) via `@anthropic-ai/sdk`, with the image and an
-   instruction to read the seven fields. The response is validated against
-   a zod schema that mirrors `LabelExtraction`, so malformed output is
-   rejected rather than trusted.
-3. The call is timed. Target: under ~3 s so the full verdict fits the 5 s
-   budget.
-4. If the model reports low confidence, `unreadableReason` is set and the UI
-   shows "we couldn't read this clearly" instead of a verdict.
+1. The browser (or `curl`, or the fixture script) sends a multipart form
+   with an `image` file. `route.ts` reads it with `request.formData()`.
+2. The route validates before spending money: missing file, unsupported
+   type (only JPEG/PNG/WebP/GIF), or over 10 MB → HTTP 400 with a
+   plain-English `error`.
+3. `extractLabel()` in `src/lib/extract` base64-encodes the bytes and makes
+   **one** call to Claude (`claude-sonnet-5` by default; `EXTRACTION_MODEL`
+   overrides) with the image, a short system prompt of transcription rules,
+   and a **structured-output schema** built from the zod
+   `LabelExtractionSchema`. The API guarantees the reply matches the schema;
+   the SDK's `parse()` hands back a typed object.
+4. The call is timed. Typical: ~3.9 s median on the fixtures, which leaves
+   room inside the 5-second verdict budget.
+5. The route returns `{ extraction, durationMs, model, usage }`. If the
+   model says the image is unreadable, `extraction.unreadableReason` is set
+   and `confidence` is low; the UI shows "we couldn't read this" instead of
+   a verdict.
+6. Any failure becomes an `ExtractionError` with a plain-English message
+   and a status (500 bad key, 503 rate-limited/unreachable, 422 refused,
+   502 malformed). The underlying API error is logged on the server only.
 
 The API key lives in `process.env.ANTHROPIC_API_KEY` on the server. Route
 handlers never ship to the browser, so the key never does either.
@@ -96,7 +98,7 @@ the health warning is statutory text and must not.
 ## Where settings and secrets come from
 
 Next.js loads `.env.local` (git-ignored) into `process.env` on the server
-at startup. Locally you put `ANTHROPIC_API_KEY=...` there. On Amplify you set
+at startup. Locally you put `ANTHROPIC_API_KEY=...` there (and optionally `EXTRACTION_MODEL`). On Amplify you set
 it under App settings → Environment variables. The code never contains
 a key, and `.gitignore` blocks every `.env*` file except `.env.example`.
 
@@ -150,6 +152,7 @@ prototype that's a feature — nothing to manage.
 - **Route handler** — a `route.ts` file exporting `GET`/`POST` functions; Next.js's way to write a JSON API.
 - **Server component** — a React component that runs on the server and sends HTML, not JavaScript, to the browser.
 - **Fixture** — a sample input checked into the repo so anyone can test without their own data.
+- **Structured output** — asking the model for JSON that must match a schema you supply, so the reply is validated data rather than free text.
 - **Fuzzy match** — comparing strings by similarity score rather than exact equality.
 - **Stub** — a placeholder function whose signature is final but whose body isn't written yet.
 - **zod** — a library for declaring a data shape and validating unknown input against it.

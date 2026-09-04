@@ -18,7 +18,7 @@ export function isSupportedImageType(type: string): type is SupportedImageType {
 }
 
 /** Default model; override with EXTRACTION_MODEL for latency/cost experiments. */
-export const DEFAULT_EXTRACTION_MODEL = "claude-opus-5";
+export const DEFAULT_EXTRACTION_MODEL = "claude-sonnet-5";
 
 /**
  * What we ask the model to return. Mirrors LabelExtraction, but every optional
@@ -70,7 +70,7 @@ Transcribe what is PRINTED on the label into the requested fields. Rules:
 - If a field is not on the label, return null for it. Do not guess.
 - alcoholContent is the percentage as a number (e.g. "45% Alc./Vol." -> 45). Ignore proof.
 - countryOfOrigin is only a statement like "Product of France" or "Made in Italy". An address is not a country of origin.
-- governmentWarning must be the complete warning text verbatim, including the heading, with the original capitalization of every word.
+- governmentWarning must be the complete warning text verbatim, including the heading, with the original capitalization of every word. The heading's casing is evidence: if the label prints "Government Warning:" in title case, return exactly "Government Warning:" — never convert it to "GOVERNMENT WARNING:". Likewise never lowercase a heading that is printed in capitals.
 - confidence reflects legibility. Below 0.5 means a reviewer should not trust these fields.
 - If the image is not readable enough to transcribe reliably, set unreadableReason and still return whatever you could read.`;
 
@@ -90,6 +90,26 @@ export interface ExtractionResult {
   /** Wall-clock milliseconds for the model call. Budget for the whole verdict is 5000. */
   durationMs: number;
   model: string;
+  /** Token usage for the call, for latency/cost tuning. */
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+/**
+ * Not every model accepts every parameter. `effort` is rejected by Haiku 4.5;
+ * server-side `fallbacks` exist only on the Opus 5 / Fable tier. Keep the
+ * per-model differences in one place so EXTRACTION_MODEL can be swapped freely.
+ */
+function modelOptions(model: string) {
+  const supportsEffort = !/haiku/.test(model);
+  const supportsFallbacks = /^claude-(opus-5|fable-5|mythos-5)/.test(model);
+  // Day 2 experiments (docs/devlog.md): disabling thinking and fast mode were both
+  // measured and dropped — no meaningful gain, and fast mode isn't enabled on this account.
+  return {
+    ...(supportsEffort ? { effort: "low" as const } : {}),
+    ...(supportsFallbacks
+      ? { fallbacks: "default" as const, betas: ["server-side-fallback-2026-07-01"] }
+      : {}),
+  };
 }
 
 let client: Anthropic | null = null;
@@ -131,6 +151,7 @@ export async function extractLabel(
   const anthropic = getClient();
   const model = process.env.EXTRACTION_MODEL ?? DEFAULT_EXTRACTION_MODEL;
   const data = Buffer.from(image).toString("base64");
+  const { effort, betas, fallbacks } = modelOptions(model);
   const started = performance.now();
 
   let response;
@@ -139,10 +160,10 @@ export async function extractLabel(
       model,
       max_tokens: 1024,
       // Reading a label is transcription, not reasoning: low effort keeps latency inside the budget.
-      output_config: { effort: "low", format: zodOutputFormat(LabelExtractionSchema) },
+      output_config: { ...(effort ? { effort } : {}), format: zodOutputFormat(LabelExtractionSchema) },
       // If a safety classifier declines, re-run on Anthropic's recommended fallback server-side.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(betas ? { betas } : {}),
+      ...(fallbacks ? { fallbacks } : {}),
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -174,11 +195,20 @@ export async function extractLabel(
     throw new ExtractionError("The label reader returned an unexpected result. Please try again.", 502);
   }
 
-  return { extraction: toLabelExtraction(parsed), durationMs, model };
+  return {
+    extraction: toLabelExtraction(parsed),
+    durationMs,
+    model,
+    usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+  };
 }
 
 function mapApiError(error: unknown): ExtractionError {
   if (error instanceof ExtractionError) return error;
+  if (error instanceof Anthropic.APIError) {
+    // Server-side log keeps the real cause; the agent only ever sees the plain-English message.
+    console.error(`extract: Anthropic API error ${error.status ?? "?"}: ${error.message}`);
+  }
   if (error instanceof Anthropic.AuthenticationError) {
     return new ExtractionError("The server's ANTHROPIC_API_KEY was rejected. Check the key and restart.", 500);
   }

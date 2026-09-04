@@ -38,10 +38,11 @@ async function main() {
     if (!isSupportedImageType(mediaType)) continue;
 
     try {
-      const { extraction, durationMs, model } = await extractLabel(readFileSync(label), mediaType);
+      const { extraction, durationMs, model, usage } = await extractLabel(readFileSync(label), mediaType);
       rows.push({
         id,
         ms: durationMs,
+        out: usage.outputTokens,
         conf: extraction.confidence.toFixed(2),
         brand: `${extraction.brandName ?? "∅"}${sameish(extraction.brandName, app.brandName) ? "" : " ≠"}`,
         abv: `${extraction.alcoholContent ?? "∅"}${extraction.alcoholContent === app.alcoholContent ? "" : " ≠"}`,
@@ -52,7 +53,7 @@ async function main() {
         model,
       });
     } catch (err) {
-      rows.push({ id, ms: -1, conf: "", brand: `ERROR: ${(err as Error).message}`, abv: "", net: "", origin: "", warnHead: "", unreadable: "", model: "" });
+      rows.push({ id, ms: -1, out: 0, conf: "", brand: `ERROR: ${(err as Error).message}`, abv: "", net: "", origin: "", warnHead: "", unreadable: "", model: "" });
     }
   }
 
