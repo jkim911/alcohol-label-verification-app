@@ -340,7 +340,147 @@ Nothing uses the key until Day 2, so there was no gap in behaviour.
 build. Static pages go to CloudFront; the API route runs on Lambda. Secrets
 live in Amplify's environment, never in the repo."
 
-### Open items
+### Open items (as of end of Day 1)
+
 - Generate 8–12 fixture label images with paired application JSON
-  (`fixtures/README.md` lists the scenarios).
-- Create `.env.local` with your Anthropic key before extraction work begins.
+  (`fixtures/README.md` lists the scenarios). ✅ done at the start of Day 2.
+- Create `.env.local` with your Anthropic key before extraction work begins. ✅ done.
+
+---
+
+## Day 2 — 2026-09-04 — Extraction
+
+### 1. Fixture review
+
+You generated ten synthetic labels with `fixtures/generate_fixtures.py`
+(Pillow draws each label from the same data that writes the application
+JSON, so image and JSON can't drift apart). Review findings:
+
+- All ten matched their manifest scenario, and the JSON field names match
+  `src/lib/types.ts` exactly (`brandName`, `isImport`, …).
+- **One fix:** the import fixture's bottler address ended in "France", so a
+  model could plausibly read a country of origin from the address and the
+  test would prove nothing. The address is now a U.S. importer
+  ("Imported by Meridien Imports LLC, … Newark, NJ"), so the *only* way to
+  get "France" is a "Product of France" line — which the label deliberately
+  omits.
+- **One addition:** `blurry-unreadable`, the Stone's Throw label with a 4°
+  tilt, heavy Gaussian blur, and washed-out contrast. Day 2 needs a fixture
+  that exercises the "we couldn't read this" path, not just clean labels.
+- The generator now finds fonts on macOS as well as Linux and accepts ids
+  on the command line to regenerate only some fixtures.
+
+### 2. The extraction module — `src/lib/extract/index.ts`
+
+One function, `extractLabel(imageBytes, mediaType)`, makes **one** call to
+Claude and returns a `LabelExtraction` plus the call's duration and token
+usage. Design points worth being able to explain:
+
+- **Structured output, not free text.** `LabelExtractionSchema` is a zod
+  schema; `zodOutputFormat(schema)` turns it into a JSON schema the API
+  enforces, and `client.beta.messages.parse(...)` gives back
+  `parsed_output` already validated. No regex, no hand-written JSON
+  parsing, and a malformed answer is rejected rather than trusted.
+- **Every field nullable.** "Not on the label" is a real answer. The schema
+  descriptions tell the model when to return null, and the system prompt
+  says never to guess or "correct" what's printed.
+- **The image goes in as base64** in the first user content block, with a
+  one-line instruction after it. Supported types are JPEG, PNG, WebP, GIF.
+- **`effort: "low"`.** Reading a label is transcription, not reasoning.
+  Lower effort means less thinking and faster answers.
+- **Server-side fallbacks** (`fallbacks: "default"` with its beta header)
+  are sent only to models that support them (Opus 5 tier). If a safety
+  classifier declined the request, Anthropic would re-run it on a fallback
+  model inside the same call. For labels this is unlikely, but it's the
+  recommended default and costs nothing.
+- **Errors are mapped to plain English + an HTTP status** in
+  `ExtractionError`: bad key → 500, rate limit → 503, bad image → 400,
+  network → 503, refusal → 422. The real API error is logged server-side;
+  the agent only ever sees the friendly sentence.
+- **A 15-second timeout and one retry** on the client, so a hung call fails
+  fast instead of leaving the agent staring at a spinner.
+
+### 3. The API route — `src/app/api/extract/route.ts`
+
+`POST /api/extract` now takes a multipart form with an `image` file. It
+validates before it spends money: no file → 400, unsupported type → 400,
+over 10 MB → 400. Then it calls `extractLabel` and returns
+`{ extraction, durationMs, model, usage }`. It runs on the Node runtime
+(`export const runtime = "nodejs"`), not the edge runtime, because the SDK
+and `Buffer` need Node.
+
+Tests in `route.test.ts` cover every validation branch without touching
+the network. `schema.test.ts` covers the zod schema and the null →
+undefined normalisation.
+
+### 4. Timing every fixture — `npm run extract:fixtures`
+
+`scripts/time-fixtures.ts` loads `.env.local`, runs every fixture through
+`extractLabel`, and prints a table: latency, output tokens, confidence,
+and the key fields with a `≠` when they differ from the application (which
+is *expected* for the mismatch fixtures). `EXTRACTION_MODEL=… npm run
+extract:fixtures` swaps the model. This is the evidence behind the model
+decision below.
+
+### 5. Latency experiments and the model decision
+
+The interviews' hard rule is a verdict in under 5 seconds; the plan budgets
+~3 s for extraction. Results across all 11 fixtures (first-run numbers,
+same prompt, `effort: low`):
+
+| Configuration | Median | Slowest | Read errors |
+|---|---|---|---|
+| Opus 5 | 5.8 s | 8.1 s | 0 of 11 |
+| Opus 5, thinking disabled | 5.8 s | 8.7 s | 0 of 11 |
+| Opus 5, fast mode | — | — | rate-limited: this account has a fast-mode limit of 0 tokens/min |
+| Opus 5, thinking off + fast mode | 5.1 s | 6.4 s | 0 of 11 |
+| **Sonnet 5** | **3.9 s** | **4.4 s** | 1 of 11 on the first run (see below), then 0 |
+| Haiku 4.5 | 6.2 s | 10.3 s | read nothing from the blurry label; slower than Sonnet |
+
+Output is only ~230 tokens per call, so the time is mostly the model
+itself, not our prompt. Two dead ends were tried and removed from the code
+to keep it explainable: disabling thinking (no gain) and fast mode (not
+enabled for this account).
+
+**The one accuracy miss.** On its first run Sonnet 5 returned
+`GOVERNMENT WARNING:` for the fixture that prints `Government Warning:` in
+title case — exactly the field that must be verbatim. Three reruns were
+correct, so it was intermittent. The system prompt now carries an explicit
+example ("if the label prints 'Government Warning:' in title case, return
+exactly that — never convert it to capitals"), and Sonnet then returned the
+title-case heading 13 times out of 13.
+
+**Decision (yours): Sonnet 5 by default.** It meets the hard requirement
+with about a second to spare for matching and rendering; Opus 5 did not on
+any single call. Opus stays one environment variable away
+(`EXTRACTION_MODEL=claude-opus-5`) for comparison or if accuracy on real
+photos turns out to need it. This is a documented trade-off in the README.
+
+**How to talk about it:** "I measured three models on every fixture. Opus
+was the most accurate but never under five seconds; Sonnet met the budget
+and, after I tightened the prompt on the one field that must be verbatim,
+matched Opus on accuracy. Model choice is an environment variable, so it's
+a one-line change if the trade-off shifts."
+
+### 6. Confidence and the unreadable path
+
+The blurry fixture came back with confidence 0.20–0.45 and an
+`unreadableReason`, while still returning whatever the model could read.
+The UI (Day 3) will treat `unreadableReason`, or confidence below 0.5, as
+"We couldn't read this clearly — try a straighter, better-lit photo" and
+withhold the verdict, per the plan's honest-failure rule.
+
+### 7. Verified on AWS
+
+After the push, Amplify rebuilt in about four minutes. A real fixture sent
+to the live endpoint with `curl -F "image=@fixtures/labels/stones-throw-ok.png"`
+returned a full, correct extraction in **3.9 s** end to end (status 200,
+`model: claude-sonnet-5`), and a request with no file returned the 400 with
+its plain-English message. That proves the key you set in Amplify's
+environment is reaching the route handler through the `.env.production`
+step in `amplify.yml`.
+
+### Open items
+
+- Day 3: implement the seven matchers (turn the 25 todo tests into real
+  ones) and build the single-label flow end to end.
