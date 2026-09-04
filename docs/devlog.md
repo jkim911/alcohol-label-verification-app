@@ -307,10 +307,40 @@ app or touches user input, and the only offered "fix" is upgrading back to
 Next 16. Noted as an accepted, documented trade-off; revisit when Amplify
 supports 16.
 
-### Open items
+### First deploy — live on AWS
 
-- Create an AWS account, connect the GitHub repo in Amplify Hosting, and
-  add `ANTHROPIC_API_KEY` under Environment variables.
+You created the AWS account and connected the repo in the Amplify console
+yourself (the embedded browser couldn't complete your passkey MFA prompt,
+which is a browser limitation, not an AWS problem). Amplify detected the
+Next.js app, used `amplify.yml`, created its own IAM service role for logs,
+and built `main`.
+
+**Live URL:** https://main.dhvxptf4pufyq.amplifyapp.com/
+
+Verified from the command line, not just the dashboard:
+
+| Check | Result |
+|---|---|
+| `GET /` | 200, home page HTML, ~0.2 s |
+| `POST /api/extract` | 501 with the JSON error, ~0.14 s |
+| Response headers | `x-cache: Hit from cloudfront`, `via: ... cloudfront.net` |
+
+Those headers are the proof of the architecture described in
+`docs/how-it-works.md`: the static page is served by CloudFront's cache,
+and the API route ran on Amplify's compute layer (Lambda).
+
+**About the API key.** You added `ANTHROPIC_API_KEY` in Amplify's
+environment variables. One subtlety worth knowing: `amplify.yml` copies that
+variable into `.env.production` *during the build*, so a key added after a
+build isn't visible to the running app until the next build. The commit
+that added this entry triggered a rebuild, so it's baked in from here on.
+Nothing uses the key until Day 2, so there was no gap in behaviour.
+
+**How to talk about the deploy:** "Every push to `main` triggers an Amplify
+build. Static pages go to CloudFront; the API route runs on Lambda. Secrets
+live in Amplify's environment, never in the repo."
+
+### Open items
 - Generate 8–12 fixture label images with paired application JSON
   (`fixtures/README.md` lists the scenarios).
 - Create `.env.local` with your Anthropic key before extraction work begins.

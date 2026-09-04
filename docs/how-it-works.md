@@ -115,6 +115,8 @@ it prints is a quick sanity check that every route exists.
 
 ## How deployment works (AWS Amplify Hosting)
 
+Live at https://main.dhvxptf4pufyq.amplifyapp.com/ — the `main.` prefix is the branch name; Amplify would give another branch its own URL.
+
 Amplify Hosting is AWS's git-connected hosting service. It's connected to
 the GitHub repo; every push to `main` triggers a build following
 `amplify.yml`:

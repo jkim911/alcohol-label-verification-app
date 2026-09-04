@@ -1,5 +1,7 @@
 # Alcohol Verification App
 
+**Live:** https://main.dhvxptf4pufyq.amplifyapp.com/ (AWS Amplify Hosting, deploys from `main`)
+
 AI-assisted alcohol-label verification for TTB compliance review. Give it what
 the applicant submitted and a photo of the physical label; it tells an agent,
 field by field, whether they agree — **Pass**, **Needs review**, or **Fail** —
