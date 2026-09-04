@@ -285,6 +285,28 @@ static pages with CloudFront and runs the API route on Lambda. I chose it
 over ECS because the prototype has no long-running process and no
 database, so managed serverless was the smallest footprint."
 
+### Downgrading Next.js 16 → 15 for Amplify
+
+Amplify's documentation says it "fully manages server-side rendering (SSR)
+for apps built with Next.js versions 12 through 15." The scaffold had
+installed Next.js 16 (the newest at the time). Running an unsupported major
+version on the host is exactly the kind of surprise you don't want on Day 6,
+so the app was moved to 15 now, while it's small:
+
+```bash
+npm install next@15 eslint-config-next@15
+```
+
+Only one line of code depended on 16: `layout.tsx` used a `LayoutProps<"/">`
+helper type that 16 generates. It became the plain
+`{ children: React.ReactNode }` props type. Build and tests pass unchanged.
+
+`npm audit` now reports two advisories in a `postcss` copy bundled *inside*
+Next.js 15. That's a build-time CSS tool, not code that runs in the deployed
+app or touches user input, and the only offered "fix" is upgrading back to
+Next 16. Noted as an accepted, documented trade-off; revisit when Amplify
+supports 16.
+
 ### Open items
 
 - Create an AWS account, connect the GitHub repo in Amplify Hosting, and

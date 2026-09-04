@@ -9,7 +9,7 @@ matching engine or the UI.
 
 ## Stack
 
-- Next.js 16 (App Router, `src/` dir) + TypeScript + Tailwind v4, npm, Node 22 (`.nvmrc`).
+- Next.js 15 (App Router, `src/` dir) + TypeScript + Tailwind v4, npm, Node 22 (`.nvmrc`). Pinned to 15, not 16, because AWS Amplify Hosting officially supports Next.js 12–15 — don't upgrade without checking Amplify's support page.
 - Label extraction: one Claude vision call via `@anthropic-ai/sdk` with a zod schema (`src/lib/extract/`). Load the `claude-api` skill before writing SDK code.
 - Matching engine: pure TypeScript in `src/lib/matchers/`, one function per field, tested with vitest (`npm test`).
 - Deploy: AWS Amplify Hosting from GitHub `main` (`amplify.yml`). No database in the MVP.
