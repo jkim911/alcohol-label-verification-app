@@ -1,0 +1,52 @@
+[
+  {
+    "id": "stones-throw-ok",
+    "product": "spirits",
+    "expected": "pass \u2014 brand differs only in casing"
+  },
+  {
+    "id": "abv-off-by-1",
+    "product": "spirits",
+    "expected": "fail \u2014 ABV off by 1.0 (outside +/-0.3 tolerance)"
+  },
+  {
+    "id": "abv-off-by-0.2",
+    "product": "beer",
+    "expected": "pass \u2014 ABV off by 0.2 (within +/-0.3 tolerance)"
+  },
+  {
+    "id": "warning-reworded",
+    "product": "wine",
+    "expected": "fail \u2014 warning reworded (one word added)"
+  },
+  {
+    "id": "warning-lowercase",
+    "product": "spirits",
+    "expected": "fail \u2014 'Government Warning:' not in ALL CAPS"
+  },
+  {
+    "id": "address-mismatch",
+    "product": "beer",
+    "expected": "fail \u2014 label city/state/ZIP differs from application"
+  },
+  {
+    "id": "import-missing-origin",
+    "product": "wine",
+    "expected": "fail \u2014 import with no country of origin printed on label"
+  },
+  {
+    "id": "class-qualifier-drop",
+    "product": "spirits",
+    "expected": "review \u2014 'Straight' qualifier dropped on label"
+  },
+  {
+    "id": "class-type-reorder",
+    "product": "wine",
+    "expected": "review \u2014 class/type word order changed"
+  },
+  {
+    "id": "net-contents-unit-diff",
+    "product": "beer",
+    "expected": "pass \u2014 net contents unit differs, same volume"
+  }
+]

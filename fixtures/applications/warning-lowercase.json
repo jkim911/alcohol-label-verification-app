@@ -1,0 +1,11 @@
+{
+  "id": "warning-lowercase",
+  "productType": "spirits",
+  "brandName": "Copper Fox Gin",
+  "classType": "Distilled Gin",
+  "alcoholContent": 47,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Copper Fox Distillers, 19 Foundry Ln, Denver, CO 80202",
+  "isImport": false,
+  "countryOfOrigin": null
+}

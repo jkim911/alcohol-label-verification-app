@@ -1,0 +1,11 @@
+{
+  "id": "class-type-reorder",
+  "productType": "wine",
+  "brandName": "Blue Hollow Cellars",
+  "classType": "Chardonnay White Wine",
+  "alcoholContent": 12.5,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Blue Hollow Cellars, 310 Ridge Rd, Sonoma, CA 95476",
+  "isImport": false,
+  "countryOfOrigin": null
+}

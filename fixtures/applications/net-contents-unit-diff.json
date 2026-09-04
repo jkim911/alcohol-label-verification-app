@@ -1,0 +1,11 @@
+{
+  "id": "net-contents-unit-diff",
+  "productType": "beer",
+  "brandName": "Tidewater Lager",
+  "classType": "American Lager",
+  "alcoholContent": 4.8,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Tidewater Brewing Co., 5 Bay St, Norfolk, VA 23510",
+  "isImport": false,
+  "countryOfOrigin": null
+}

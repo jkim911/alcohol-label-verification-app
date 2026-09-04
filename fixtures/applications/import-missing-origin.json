@@ -1,0 +1,11 @@
+{
+  "id": "import-missing-origin",
+  "productType": "wine",
+  "brandName": "Chateau Meridien",
+  "classType": "Bordeaux Red Blend",
+  "alcoholContent": 13,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Meridien Imports LLC, 12 Bordeaux Way, France",
+  "isImport": true,
+  "countryOfOrigin": "France"
+}

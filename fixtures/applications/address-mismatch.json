@@ -1,0 +1,11 @@
+{
+  "id": "address-mismatch",
+  "productType": "beer",
+  "brandName": "Northbound Brewing",
+  "classType": "India Pale Ale",
+  "alcoholContent": 6.5,
+  "netContents": "12 FL OZ",
+  "bottlerNameAddress": "Northbound Brewing Co., 900 Dock St, Seattle, WA 98134",
+  "isImport": false,
+  "countryOfOrigin": null
+}

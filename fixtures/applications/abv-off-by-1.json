@@ -1,0 +1,11 @@
+{
+  "id": "abv-off-by-1",
+  "productType": "spirits",
+  "brandName": "Ridgeline Reserve",
+  "classType": "Straight Rye Whiskey",
+  "alcoholContent": 40.0,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Ridgeline Distilling Co., 88 Summit Ave, Louisville, KY 40202",
+  "isImport": false,
+  "countryOfOrigin": null
+}

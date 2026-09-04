@@ -1,0 +1,11 @@
+{
+  "id": "warning-reworded",
+  "productType": "wine",
+  "brandName": "Willow Creek Vineyards",
+  "classType": "Cabernet Sauvignon",
+  "alcoholContent": 13.5,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Willow Creek Vineyards, 4521 Vine Row, Napa, CA 94558",
+  "isImport": false,
+  "countryOfOrigin": null
+}
