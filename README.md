@@ -25,10 +25,22 @@ npm run dev                  # http://localhost:3000
 Other scripts:
 
 ```bash
-npm test        # matching-engine unit tests (vitest)
+npm test                  # unit tests (vitest)
 npm run lint
 npm run build
+npm run extract:fixtures  # read every fixture label with Claude and print latency
 ```
+
+### Try the extraction endpoint
+
+With the dev server running, send any fixture label (or your own photo):
+
+```bash
+curl -s -X POST -F "image=@fixtures/labels/stones-throw-ok.png" http://localhost:3000/api/extract | python3 -m json.tool
+```
+
+The same call works against the live deployment by swapping the host for
+`https://main.dhvxptf4pufyq.amplifyapp.com`.
 
 ## Approach
 
