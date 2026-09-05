@@ -624,9 +624,119 @@ Tailwind theme tokens and a few shared control classes.
 - **class-qualifier-drop** → overall Needs review; the class/type card
   says the label drops 'straight'.
 
+### Open items (end of Day 3)
+
+- Day 4: batch mode. ✅ see below.
+- Downscale large phone photos in the browser before upload. ✅ see below.
+
+---
+
+## Day 4 — 2026-09-05 — Client-side resize and batch mode
+
+### 1. Shrinking photos in the browser — `src/lib/image-resize.ts`
+
+You asked for a shared, canvas-based resize used by both upload paths, so
+a 12-megapixel phone photo never leaves the phone at full size. How it
+works, step by step:
+
+1. `createImageBitmap(file, { imageOrientation: "from-image" })` decodes
+   the image **and applies the EXIF orientation**, so a photo taken in
+   portrait doesn't arrive sideways. If the browser can't decode the file
+   (some HEIC cases), the original is returned untouched and the server's
+   "unsupported type" message does the explaining.
+2. `canPassThrough()` decides whether to skip the work: if the longest
+   edge is already ≤ 1800 px, the file is ≤ 1.5 MB, and the type is one the
+   server accepts, the original is used as-is. That keeps the small PNG
+   fixtures lossless — re-encoding crisp synthetic text as JPEG would only
+   make it worse.
+3. Otherwise `fitWithin()` computes the largest size that fits in 1800 px
+   on the long edge (pure function, unit-tested), the bitmap is drawn onto
+   a canvas of that size over a white background (transparent PNG areas
+   would go black in JPEG), and `canvas.toBlob("image/jpeg", 0.85)`
+   produces the upload. The result is a `File` named `<original>.jpg`.
+4. `describeResize()` builds the caption shown under the preview, e.g.
+   "Resized from 4000×5600 (2.1 MB) to 1286×1800 (300 KB)".
+
+Why 1800 px: the Claude API downsizes anything over ~1568 px on the long
+edge anyway, so sending more is pure upload time. 1800 leaves a little
+margin for the API's own resampling while keeping small label text legible.
+
+Both the single-review drop zone and every batch worker call
+`resizeImageForUpload()` before posting. The pure parts have tests in
+`image-resize.test.ts`; the canvas part can't run in vitest's Node
+environment, so it was verified in the browser by dropping a synthetic
+4000×5600 JPEG onto the single-review page and reading the caption:
+"Resized from 4000×5600 (724 KB) to 1286×1800 (124 KB)".
+
+### 2. Batch mode — the plan's "feature Sarah named by name"
+
+Everything about a batch runs in the browser except the per-label review
+call. There is no queue, no worker, and no upload of the whole batch to a
+server — the browser fans out one `POST /api/review` per label, six at a
+time, and each of those is an independent serverless call on Amplify.
+That's the "fewest moving parts" principle applied to 300 labels.
+
+**Pure helpers, all tested** (`src/lib/csv.ts`, `src/lib/batch.ts`):
+
+- `parseCsv` — a 40-line RFC 4180 parser (quoted fields, doubled quotes,
+  embedded commas and newlines, CRLF, BOM). Written rather than installed
+  so it can be explained line by line.
+- `rowToApplication` — one CSV row → `Application`, using the same zod
+  schema as the single form. Errors name the row: "Row 7 (abc): brandName:
+  Brand name is required". `isImport` accepts yes/true/1.
+- `pairImages` — matches rows to photos by **file-name stem**, case-
+  insensitive and ignoring the extension, and reports rows with no photo
+  and photos with no row *before* anything runs.
+- `runPool` — a concurrency-capped pool: N lanes pull from a shared queue,
+  results keep input order, and a callback fires as each finishes to drive
+  the live count. Tested to prove it never exceeds the limit.
+- `resultsToCsv` — the export: one row per label, overall result, time,
+  one column per field's status, and a notes column listing every
+  non-pass reason.
+
+**The screen** (`/batch`, `BatchReview.tsx`), three steps then results:
+
+1. **The applications** — download the CSV template
+   (`public/batch-template.csv`, headers plus one example row) or choose a
+   CSV. Skipped rows are listed under "Why rows were skipped".
+2. **The label photos** — select or drop many at once.
+3. **Check the pairing, then run** — three counts: labels ready, rows
+   with no photo, photos with no row. The button reads "Review 11 labels"
+   and estimates the time.
+
+While running: a big "134 / 300 reviewed" count over a real progress bar,
+elapsed seconds, and rows appearing in the table as each finishes — never
+a spinner with no number. When done: filter chips by result (All, Fail,
+Needs review, Unreadable, Error, Pass) with counts, a sort menu (worst
+first, brand, ID, slowest), a table with a one-line "what to look at"
+summary per label, click-through to the same field-by-field view as the
+single flow, **Export CSV**, and "Start another batch".
+
+"Try a sample batch" loads all 11 fixtures from
+`public/samples/batch-sample.csv` plus their images. `npm run
+samples:sync` (now `scripts/sync-samples.ts`) writes that CSV and the
+template from the fixtures so they can't drift.
+
+**Not built, on purpose:** zip upload. Selecting many files in the file
+dialog covers the workflow; a zip would need a client-side unzip library
+for a convenience gain. Noted as a possible follow-up.
+
+**Verified in the browser:** "Try a sample batch" → 11 labels ready, 0
+unpaired → "Review 11 labels" → finished in 8 s with 5 fail, 2 needs
+review, 1 unreadable, 3 pass — exactly what `FIXTURE_MANIFEST.json`
+predicts for those fixtures. Six at a time, each call 3.6–4.6 s.
+
+### 3. How to talk about batch mode
+
+"The browser does the fan-out: it pairs each spreadsheet row with a photo
+by file name, shrinks the photo, and sends six reviews at a time to the
+same endpoint the single flow uses. Results stream into a table as they
+finish, with a live count, and export to CSV. There's no server-side
+queue to operate, which is right for a prototype and easy to replace with
+one later because the per-label API is already the unit of work."
+
 ### Open items
 
-- Day 4: batch mode (CSV template + multi-file upload, concurrency-capped
-  processing with a live count, results table, CSV export).
-- Consider downscaling large phone photos in the browser before upload
-  (faster uploads, fewer image tokens).
+- Day 5: polish — accessibility pass, error-state copy, responsive check,
+  "try a sample" on both flows (done), touch targets.
+- Optional: zip upload; per-field confidence in the UI.

@@ -25,16 +25,16 @@ export default function Home() {
           <span className="text-ink-soft">Upload a label, enter the application, get a verdict.</span>
           <span className="mt-2 font-bold text-oxblood group-hover:underline">Start a review →</span>
         </Link>
-        <div
-          aria-disabled="true"
-          className="flex flex-col gap-2 rounded-2xl border-2 border-dashed border-rule bg-card/60 p-6 opacity-70"
+        <Link
+          href="/batch"
+          className="group flex flex-col gap-2 rounded-2xl border-2 border-rule bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-oxblood"
         >
           <span className="text-2xl font-display font-semibold">
             <span aria-hidden="true">📦 </span>Review a batch
           </span>
           <span className="text-ink-soft">Hundreds of labels at once, from a spreadsheet and a folder of photos.</span>
-          <span className="mt-2 font-bold text-ink-faint">Coming on Day 4</span>
-        </div>
+          <span className="mt-2 font-bold text-oxblood group-hover:underline">Start a batch →</span>
+        </Link>
       </nav>
 
       <p className="text-sm text-ink-faint">A prototype for TTB label review. Nothing you upload is stored.</p>

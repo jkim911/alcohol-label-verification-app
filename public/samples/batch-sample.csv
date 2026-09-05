@@ -1,0 +1,12 @@
+id,productType,brandName,classType,alcoholContent,netContents,bottlerNameAddress,isImport,countryOfOrigin
+abv-off-by-0.2,beer,Harbor Light,American Pale Ale,5,12 FL OZ,"Harbor Light Brewing Co., 220 Wharf St, Portland, ME 04101",no,
+abv-off-by-1,spirits,Ridgeline Reserve,Straight Rye Whiskey,40,750 mL,"Ridgeline Distilling Co., 88 Summit Ave, Louisville, KY 40202",no,
+address-mismatch,beer,Northbound Brewing,India Pale Ale,6.5,12 FL OZ,"Northbound Brewing Co., 900 Dock St, Seattle, WA 98134",no,
+blurry-unreadable,spirits,STONE'S THROW,Kentucky Straight Bourbon Whiskey,45,750 mL,"Stone's Throw Distilling Co., 412 River Road, Bardstown, KY 40004",no,
+class-qualifier-drop,spirits,Ironwood Reserve,Kentucky Straight Bourbon Whiskey,43,750 mL,"Ironwood Distilling Co., 77 Barrel Row, Frankfort, KY 40601",no,
+class-type-reorder,wine,Blue Hollow Cellars,Chardonnay White Wine,12.5,750 mL,"Blue Hollow Cellars, 310 Ridge Rd, Sonoma, CA 95476",no,
+import-missing-origin,wine,Chateau Meridien,Bordeaux Red Blend,13,750 mL,"Imported by Meridien Imports LLC, 12 Harbor St, Newark, NJ 07102",yes,France
+net-contents-unit-diff,beer,Tidewater Lager,American Lager,4.8,750 mL,"Tidewater Brewing Co., 5 Bay St, Norfolk, VA 23510",no,
+stones-throw-ok,spirits,STONE'S THROW,Kentucky Straight Bourbon Whiskey,45,750 mL,"Stone's Throw Distilling Co., 412 River Road, Bardstown, KY 40004",no,
+warning-lowercase,spirits,Copper Fox Gin,Distilled Gin,47,750 mL,"Copper Fox Distillers, 19 Foundry Ln, Denver, CO 80202",no,
+warning-reworded,wine,Willow Creek Vineyards,Cabernet Sauvignon,13.5,750 mL,"Willow Creek Vineyards, 4521 Vine Row, Napa, CA 94558",no,

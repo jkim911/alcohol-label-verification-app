@@ -30,7 +30,8 @@ matching engine or the UI.
 - Matchers take `(application, extraction)` and return a `FieldResult`. No I/O in `src/lib/matchers/`.
 - Fixtures: `fixtures/applications/<id>.json` paired with `fixtures/labels/<id>.*`.
 - Secrets only in `.env.local` (git-ignored); `.env.example` documents them.
-- Samples for the UI: `fixtures/` is the source; run `npm run samples:sync` after adding a fixture so `public/samples/` and `src/lib/samples.ts` stay in step.
+- Samples for the UI: `fixtures/` is the source; run `npm run samples:sync` after adding a fixture so `public/samples/` (images + batch-sample.csv), `public/batch-template.csv`, and `src/lib/samples.ts` stay in step.
+- Every browser upload path must go through `resizeImageForUpload` (src/lib/image-resize.ts) before posting.
 - Don't run `npm run build` while the dev server is running — it corrupts the dev cache (page renders but isn't interactive). Stop the server, build, `rm -rf .next`, restart.
 - Commit incrementally with clear messages — "committed incrementally" is a graded deliverable.
 - Keep the README's Setup / Approach / Assumptions & trade-offs sections current as decisions are made.

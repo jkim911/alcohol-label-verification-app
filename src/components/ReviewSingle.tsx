@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { describeResize, resizeImageForUpload } from "@/lib/image-resize";
 import type { Sample } from "@/lib/samples";
 import type { LabelExtraction, ProductType, ReviewVerdict } from "@/lib/types";
 import { VerdictView } from "./VerdictView";
@@ -49,6 +50,8 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const [sampleId, setSampleId] = useState("");
   const [dragging, setDragging] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [resizeNote, setResizeNote] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Keep an object URL for the preview and revoke it when the file changes.
@@ -73,13 +76,21 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const acceptFile = useCallback((candidate: File | null | undefined) => {
+  const acceptFile = useCallback(async (candidate: File | null | undefined) => {
     if (!candidate) return;
     if (!candidate.type.startsWith("image/")) {
       setPhase({ kind: "error", message: "That file isn't an image. Upload a JPEG, PNG, or WebP photo of the label." });
       return;
     }
-    setFile(candidate);
+    // Shrink big phone photos in the browser before they go anywhere.
+    setPreparing(true);
+    try {
+      const result = await resizeImageForUpload(candidate);
+      setFile(result.file);
+      setResizeNote(describeResize(result));
+    } finally {
+      setPreparing(false);
+    }
     setPhase({ kind: "input" });
   }, []);
 
@@ -105,13 +116,14 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!file) m.push("a label photo");
+    if (preparing) m.push("the photo to finish preparing");
     if (!form.brandName.trim()) m.push("brand name");
     if (!form.classType.trim()) m.push("class/type");
     if (!form.netContents.trim()) m.push("net contents");
     if (!form.bottlerNameAddress.trim()) m.push("bottler name & address");
     if (form.isImport && !form.countryOfOrigin.trim()) m.push("country of origin");
     return m;
-  }, [file, form]);
+  }, [file, form, preparing]);
 
   const canCompare = missing.length === 0 && phase.kind !== "reviewing";
 
@@ -156,6 +168,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const restart = () => {
     setForm(EMPTY);
     setFile(null);
+    setResizeNote(null);
     setSampleId("");
     setPhase({ kind: "input" });
     window.scrollTo({ top: 0 });
@@ -256,6 +269,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
                   {/* eslint-disable-next-line @next/next/no-img-element -- object URL from the user's upload */}
                   <img src={previewUrl} alt="Preview of the label you chose" className="max-h-[28rem] w-auto rounded-lg shadow-card" />
                   <p className="text-sm text-ink-soft">{file?.name}</p>
+                  {resizeNote && <p className="text-xs text-ink-faint">{resizeNote}</p>}
                 </>
               ) : (
                 <>

@@ -98,6 +98,31 @@ path are identical from that point on. `VerdictView.tsx` renders the
 result; `StatusMark.tsx` maps each status to a colour, a glyph (✓ ! ✗ –),
 and a word.
 
+## What happens in a batch (`/batch`)
+
+1. The CSV is parsed in the browser (`src/lib/csv.ts`) and each row is
+   validated into an `Application` (`rowToApplication`). Bad rows are
+   listed and skipped, never silently dropped.
+2. Photos are paired to rows by file-name stem (`pairImages`); the screen
+   shows how many are ready, how many rows lack a photo, and how many
+   photos lack a row.
+3. On "Review N labels", `runPool` runs six workers. Each worker shrinks
+   its photo with `resizeImageForUpload`, posts to `/api/review` (the same
+   route the single flow uses), and returns a `BatchResult`. A callback
+   updates the "done / total" count and appends the row to the table.
+4. When all finish, the table can be filtered by result, sorted, clicked
+   through to the full verdict view, and exported with `resultsToCsv`.
+
+Nothing about a batch is stored server-side; closing the tab discards it.
+
+## Image resizing before upload
+
+`src/lib/image-resize.ts` runs in the browser on every chosen photo:
+decode with EXIF orientation applied → skip if already ≤ 1800 px and
+≤ 1.5 MB → otherwise draw onto a canvas that fits within 1800 px and encode
+as JPEG at quality 0.85. The single form shows a "Resized from … to …"
+caption when it happened.
+
 ## The matching rules, one per field
 
 | Field | How it's compared | Pass | Needs review | Fail |
@@ -174,6 +199,8 @@ prototype that's a feature — nothing to manage.
 - **Structured output** — asking the model for JSON that must match a schema you supply, so the reply is validated data rather than free text.
 - **Fuzzy match** — comparing strings by similarity score rather than exact equality.
 - **Levenshtein distance** — the number of single-character edits needed to turn one string into another; divided by length it gives a 0–1 similarity.
+- **Concurrency pool** — a fixed number of workers pulling jobs from a queue, so at most N requests are in flight.
+- **EXIF orientation** — the rotation tag phones write into photos; ignored, a portrait shot appears sideways.
 - **Hydration** — React attaching its event handlers to server-rendered HTML in the browser; until it happens, the page looks right but ignores clicks.
 - **Stub** — a placeholder function whose signature is final but whose body isn't written yet.
 - **zod** — a library for declaring a data shape and validating unknown input against it.
