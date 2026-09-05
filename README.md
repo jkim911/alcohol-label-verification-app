@@ -7,8 +7,8 @@ the applicant submitted and a photo of the physical label; it tells an agent,
 field by field, whether they agree — **Pass**, **Needs review**, or **Fail** —
 with a plain-English reason for each. The agent makes the final call.
 
-> Status: Day 2. Label extraction is live (`POST /api/extract`); the
-> matching engine and the review UI are next. See `docs/build-plan.md` for the full 7-day plan,
+> Status: Day 3. Single-label review works end to end at `/single`:
+> upload, compare, verdict. Batch mode is next. See `docs/build-plan.md` for the full 7-day plan,
 > `docs/devlog.md` for a step-by-step journal of the build, and
 > `docs/how-it-works.md` for how the app works under the hood.
 
@@ -31,6 +31,11 @@ npm run build
 npm run extract:fixtures  # read every fixture label with Claude and print latency
 ```
 
+### Try it in the browser
+
+Open http://localhost:3000/single, pick one of the 11 samples from "Try a sample"
+(or upload your own photo and fill in the form), and press **Compare**.
+
 ### Try the extraction endpoint
 
 With the dev server running, send any fixture label (or your own photo):
@@ -46,7 +51,7 @@ The same call works against the live deployment by swapping the host for
 
 - **Next.js App Router + TypeScript + Tailwind** — one repo, one deploy target; API routes are the backend, so there is no second service to stand up.
 - **One multimodal Claude call for extraction** (`src/lib/extract/`) with a strict JSON schema (zod → structured output). A single call beats an OCR-then-NLP pipeline on both latency and accuracy against stylized label fonts, and it's one thing to time against the 5-second budget. Default model is `claude-sonnet-5` (~3.9 s median on the fixtures); `EXTRACTION_MODEL` switches it. `npm run extract:fixtures` times every fixture.
-- **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy for brand/class/address, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning. Unit-tested, no network.
+- **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy (Levenshtein) for brand and bottler name, word-set comparison for class/type, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning (checked against the statutory text). Every result is pass / needs review / fail with a plain-English reason. 52 unit tests, no network.
 - **Batch mode** fans out client-side with a server-side concurrency cap (~8) — no queue infrastructure for a prototype.
 - **No storage.** The prototype is stateless by design.
 - **Deployed on AWS Amplify Hosting** from the `main` branch. Amplify builds the app with `amplify.yml`, serves static pages from CloudFront, and runs the API route handlers on Lambda.

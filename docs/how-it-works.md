@@ -68,16 +68,35 @@ Browser ──HTTP──▶ Next.js server ──▶ App Router matches the URL
 The API key lives in `process.env.ANTHROPIC_API_KEY` on the server. Route
 handlers never ship to the browser, so the key never does either.
 
-## What will happen on a full review (Day 3 design)
+## What happens on a full review (`POST /api/review`)
 
-1. `Application` comes from the form (or a fixture, or a CSV row in batch).
-2. `LabelExtraction` comes from the step above.
-3. Each matcher in `MATCHERS` runs in `LABEL_FIELDS` order and returns a
-   `FieldResult`.
-4. The overall status is the worst among applicable fields
-   (`fail` > `review` > `pass`), skipping any marked `notApplicable`.
-5. The `ReviewVerdict` is rendered as a checklist: icon + word + reason per
-   field, and a banner with the overall call. The agent confirms or overrides.
+1. The `/single` page posts a multipart form: the image file and the
+   application details as a JSON string.
+2. The route validates the application with a zod schema
+   (`src/lib/application-schema.ts`); a missing field returns a 400 with a
+   named reason.
+3. `extractLabel()` reads the label (same call as `/api/extract`).
+4. `isUnreadable()` checks for an `unreadableReason` or confidence below
+   0.5. If so, the response is `{ status: "unreadable", reason }` and the
+   UI shows "We couldn't read this label clearly" — no verdict.
+5. Otherwise `buildVerdict()` runs the seven matchers in `LABEL_FIELDS`
+   order. Each returns a `FieldResult`; `overallStatus()` takes the worst
+   among applicable fields (`fail` > `review` > `pass`), ignoring any marked
+   `notApplicable`.
+6. The response is `{ status: "ok", verdict }` with `durationMs` for the
+   whole request. The UI renders the banner, the photo, and one card per
+   field. The agent confirms or overrides; nothing is stored.
+
+## The screen — `/single`
+
+`src/components/ReviewSingle.tsx` owns the form state (a client
+component). It has four phases: `input`, `reviewing` (visible timer),
+`verdict`, and `unreadable`, plus an inline error banner. "Try a sample"
+loads a fixture's JSON into the form and fetches its image from
+`public/samples/` into a `File`, so the sample path and the real-upload
+path are identical from that point on. `VerdictView.tsx` renders the
+result; `StatusMark.tsx` maps each status to a colour, a glyph (✓ ! ✗ –),
+and a word.
 
 ## The matching rules, one per field
 
@@ -154,5 +173,7 @@ prototype that's a feature — nothing to manage.
 - **Fixture** — a sample input checked into the repo so anyone can test without their own data.
 - **Structured output** — asking the model for JSON that must match a schema you supply, so the reply is validated data rather than free text.
 - **Fuzzy match** — comparing strings by similarity score rather than exact equality.
+- **Levenshtein distance** — the number of single-character edits needed to turn one string into another; divided by length it gives a 0–1 similarity.
+- **Hydration** — React attaching its event handlers to server-rendered HTML in the browser; until it happens, the page looks right but ignores clicks.
 - **Stub** — a placeholder function whose signature is final but whose body isn't written yet.
 - **zod** — a library for declaring a data shape and validating unknown input against it.

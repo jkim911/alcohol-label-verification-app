@@ -30,6 +30,8 @@ matching engine or the UI.
 - Matchers take `(application, extraction)` and return a `FieldResult`. No I/O in `src/lib/matchers/`.
 - Fixtures: `fixtures/applications/<id>.json` paired with `fixtures/labels/<id>.*`.
 - Secrets only in `.env.local` (git-ignored); `.env.example` documents them.
+- Samples for the UI: `fixtures/` is the source; run `npm run samples:sync` after adding a fixture so `public/samples/` and `src/lib/samples.ts` stay in step.
+- Don't run `npm run build` while the dev server is running — it corrupts the dev cache (page renders but isn't interactive). Stop the server, build, `rm -rf .next`, restart.
 - Commit incrementally with clear messages — "committed incrementally" is a graded deliverable.
 - Keep the README's Setup / Approach / Assumptions & trade-offs sections current as decisions are made.
 - **Documentation for the author is mandatory.** The user needs to explain every part of this project themselves. At the end of every working session, append a dated entry to `docs/devlog.md` covering what was done and *why*, in plain language with the reasoning, and update `docs/how-it-works.md` whenever the architecture or request flow changes. Explain concepts (not just steps) the first time they appear.

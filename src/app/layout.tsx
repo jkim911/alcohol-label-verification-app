@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Public_Sans } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Fraunces is a variable font: no fixed weights, and we opt into its
+// optical-size and softness axes for the display headings.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  axes: ["opsz", "SOFT"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const publicSans = Public_Sans({
+  variable: "--font-public-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -17,14 +21,9 @@ export const metadata: Metadata = {
   description: "AI-assisted alcohol label verification for TTB compliance review.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${fraunces.variable} ${publicSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

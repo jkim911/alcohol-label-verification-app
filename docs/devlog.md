@@ -480,7 +480,153 @@ its plain-English message. That proves the key you set in Amplify's
 environment is reaching the route handler through the `.env.production`
 step in `amplify.yml`.
 
+### Open items (end of Day 2)
+
+- Day 3: implement the seven matchers and the single-label flow. ✅ see below.
+
+---
+
+## Day 3 — 2026-09-05 — Matching engine and the single-label screen
+
+### 1. The matching engine — `src/lib/matchers/`
+
+Split into small files so each idea is easy to point at:
+
+| File | What it holds |
+|---|---|
+| `text.ts` | `normalize` (trim, collapse spaces, unify curly quotes, lowercase), `tokens`, `similarity` (Levenshtein edit distance turned into a 0–1 score), `wordDiff`, `tokenSetSimilarity` (Jaccard on word sets) |
+| `units.ts` | `parseVolume` ("750 mL", "0.75 L", "12 FL OZ" → millilitres), `sameVolume` (1% tolerance, because unit conversions are never exact), `parseAbv` |
+| `address.ts` | `parseAddress` splits "Name, Street, City, ST 12345" into parts; `normalizeStreet` maps Street/St, Avenue/Ave, Road/Rd, …; `stripRolePrefix` drops "Imported by", "Bottled by" |
+| `warning.ts` | `STATUTORY_WARNING`, the exact text from 27 CFR 16.21; whitespace-only normalization; a helper that returns the heading *as printed* |
+| `index.ts` | The seven matchers and the `RULES` constants (thresholds in one place so code and README can't disagree) |
+
+**Why Levenshtein?** It's the simplest similarity measure to explain in an
+interview ("how many single-character edits turn one string into the
+other, divided by the longer length") and it's plenty for short label
+strings. A library would have been faster to type but harder to defend.
+
+**Each matcher's policy, as implemented:**
+
+- **Brand name.** Equal after normalization → pass (the reason says
+  "same name, different casing" if only the casing differed — that's
+  Dave's "STONE'S THROW" example). Similarity ≥ 0.9 with no word
+  differences → pass. Similarity ≥ 0.7, or the only difference is an
+  extra/missing word → review, and the reason names the word. Otherwise fail.
+- **Class/type.** Same words in the same order → pass. Same words,
+  different order → review ("same words in a different order"). A word
+  dropped or added with word-set similarity ≥ 0.5 → review, naming the
+  word ("the label drops 'straight'… a missing qualifier can change the
+  legal class"). Otherwise fail.
+- **Alcohol content.** Within ±0.3 → pass (the reason cites TTB's
+  tolerance when it isn't exact). Otherwise fail with the point
+  difference. Absent on the label: beer → not applicable (federal rules
+  don't require it on malt beverages); wine or spirits → review.
+  Application blank → not applicable.
+- **Net contents.** Both parse → compare in millilitres; equal within 1%
+  → pass ("the same volume in different units" when the text differs);
+  else fail showing both in mL. Either side unparseable → review.
+- **Bottler name/address.** If both sides parse into name/street/city/
+  state/ZIP: city, state, or ZIP differ → fail (the reason shows both
+  places); company name similarity < 0.7 → fail; name ≥ 0.85 and street
+  equal after abbreviation normalization → pass; otherwise review, saying
+  whether it's the street or the name that's off. If either side can't be
+  segmented, fall back to whole-line similarity (≥ 0.85 pass, ≥ 0.7
+  review, else fail) and say so.
+- **Country of origin.** Not an import → not applicable. Import with no
+  country on the application → review (the application is incomplete).
+  Import with nothing on the label → fail, suggesting "Product of X".
+  Exact match after normalization → pass; anything else → fail.
+- **Government warning.** Compared against the statute, not the
+  application (applications don't carry the warning text). Absent → fail.
+  Heading not exactly `GOVERNMENT WARNING:` in capitals → fail, quoting how
+  it was printed. Whitespace-normalized text equal to the statute → pass,
+  with a note that bold weight must be confirmed visually. Any other
+  difference → fail, naming the added/missing words.
+
+`src/lib/verdict.ts` runs all seven, takes the worst *applicable* status
+as the overall recommendation, and decides when a label is **unreadable**:
+the model gave an `unreadableReason`, or its confidence is under 0.5. In
+that case no verdict is produced at all.
+
+**Tests:** the 25 todo cases became real assertions in
+`matchers.test.ts`, plus helper tests and `verdict.test.ts`. 52 tests
+pass. Each test name is the plan's edge case, so the test file doubles as
+the spec.
+
+### 2. The review API — `POST /api/review`
+
+Multipart form with `image` and `application` (a JSON string). The
+application is validated with a zod schema in `application-schema.ts`, so
+a blank brand name comes back as `brandName: Brand name is required`
+rather than a crash. The route calls `extractLabel`, checks
+`isUnreadable`, and returns either `{ status: "ok", verdict }` or
+`{ status: "unreadable", reason, extraction }`. `durationMs` covers the
+whole request, which is the number the 5-second rule is about.
+
+### 3. The screen — `/single`
+
+`src/app/single/page.tsx` is a server component that passes the sample
+list to `ReviewSingle`, a client component ("use client") holding the
+form state. One page, three numbered steps, as the plan's UX spec asks:
+
+1. **The label photo** — a drop zone with a big "Choose a photo" button
+   (every icon has a word), a preview once chosen.
+2. **What the application says** — product type as three large toggle
+   buttons, then the fields, with an "imported" checkbox that reveals
+   country of origin.
+3. **Compare** — one button, disabled until everything needed is
+   present, with a sentence saying exactly what's still missing. While
+   reviewing, a visible clock counts up ("Reading the label… 2.3 s") over
+   a moving bar, because silence is what killed the last tool's trust.
+
+**Try a sample** in the header loads any of the 11 fixtures into both the
+form and the photo. The images are served from `public/samples/`
+(`npm run samples:sync` copies them from `fixtures/`), and the
+application JSON is imported at build time by `src/lib/samples.ts`.
+
+The **verdict** replaces the form: a banner with the overall call
+(colour + a ✓ ! ✗ glyph + the word), counts of pass/review/fail, the
+photo on the left, and one card per field on the right with the status
+word, the plain-English reason, and "On label" vs "Application" values.
+A footer says "This is a recommendation. Nothing is approved or rejected
+until you decide", with "Change details" (back to the form, data kept)
+and "Review another label".
+
+The **unreadable** state is its own screen: "We couldn't read this label
+clearly", the model's reason, and a "Try a different photo" button. Nothing
+is compared, so nothing is marked as a mismatch.
+
+**Design choices.** Warm paper background, ink text, an oxblood accent;
+Fraunces for headings and Public Sans (the typeface of U.S. government
+sites) for everything else; 18 px base font; 52 px minimum button
+height. Status is never colour alone. `globals.css` defines the palette as
+Tailwind theme tokens and a few shared control classes.
+
+### 4. Two bugs found while testing
+
+- `next/font` refused Fraunces with both `axes` and a fixed `weight`
+  list — Fraunces is a variable font, so `weight` must be omitted. The
+  page rendered blank until this was fixed.
+- After that crash the dev server's build cache was corrupt: the page's
+  main JavaScript bundle 404'd, so React never hydrated and nothing was
+  interactive even though the HTML looked right. Symptom to remember: a
+  page that renders but ignores clicks. Fix: stop the dev server, delete
+  `.next`, start again. Running `npm run build` while the dev server is up
+  causes the same thing.
+
+### 5. Verified in the browser
+
+- **warning-lowercase** → overall Fail; six fields pass or N/A, government
+  warning fails with "The heading is printed as 'Government Warning:'; it
+  must read exactly 'GOVERNMENT WARNING:' in capital letters." Read in
+  4.4 s.
+- **blurry-unreadable** → the unreadable screen, no verdict.
+- **class-qualifier-drop** → overall Needs review; the class/type card
+  says the label drops 'straight'.
+
 ### Open items
 
-- Day 3: implement the seven matchers (turn the 25 todo tests into real
-  ones) and build the single-label flow end to end.
+- Day 4: batch mode (CSV template + multi-file upload, concurrency-capped
+  processing with a live count, results table, CSV export).
+- Consider downscaling large phone photos in the browser before upload
+  (faster uploads, fewer image tokens).

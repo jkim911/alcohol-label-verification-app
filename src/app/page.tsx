@@ -1,42 +1,43 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-10 px-6 py-16">
-      <header className="flex flex-col gap-3">
-        <p className="text-sm font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-400">
-          Alcohol Verification App
-        </p>
-        <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
-          Check an alcohol label against its application in one glance.
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-12 px-6 py-16">
+      <header className="rise flex flex-col gap-4">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-oxblood">Alcohol Verification App</p>
+        <h1 className="font-display text-[2.6rem] leading-[1.05] font-semibold sm:text-6xl">
+          Check a label against its application in one glance.
         </h1>
-        <p className="text-lg text-zinc-600 dark:text-zinc-400">
-          Upload a label photo and the application details. Each of the seven
-          TTB fields gets a Pass, Needs review, or Fail with a plain-English
-          reason. You make the final call.
+        <p className="max-w-2xl text-xl leading-relaxed text-ink-soft">
+          Upload a photo of the label and the details from the application. Each of the seven TTB fields gets a
+          Pass, Needs review, or Fail with a plain-English reason. You make the final call.
         </p>
       </header>
 
-      <nav aria-label="Review modes" className="grid gap-4 sm:grid-cols-2">
-        <a
+      <nav aria-label="Review modes" className="rise grid gap-5 sm:grid-cols-2" style={{ animationDelay: "120ms" }}>
+        <Link
           href="/single"
-          aria-disabled="true"
-          className="rounded-lg border border-zinc-300 p-5 text-left opacity-60 dark:border-zinc-700"
+          className="group flex flex-col gap-2 rounded-2xl border-2 border-rule bg-card p-6 shadow-card transition hover:-translate-y-0.5 hover:border-oxblood"
         >
-          <span className="block text-lg font-semibold">🏷️ Review one label</span>
-          <span className="block text-zinc-600 dark:text-zinc-400">Coming on Day 3</span>
-        </a>
-        <a
-          href="/batch"
+          <span className="text-2xl font-display font-semibold">
+            <span aria-hidden="true">🏷️ </span>Review one label
+          </span>
+          <span className="text-ink-soft">Upload a label, enter the application, get a verdict.</span>
+          <span className="mt-2 font-bold text-oxblood group-hover:underline">Start a review →</span>
+        </Link>
+        <div
           aria-disabled="true"
-          className="rounded-lg border border-zinc-300 p-5 text-left opacity-60 dark:border-zinc-700"
+          className="flex flex-col gap-2 rounded-2xl border-2 border-dashed border-rule bg-card/60 p-6 opacity-70"
         >
-          <span className="block text-lg font-semibold">📦 Review a batch</span>
-          <span className="block text-zinc-600 dark:text-zinc-400">Coming on Day 4</span>
-        </a>
+          <span className="text-2xl font-display font-semibold">
+            <span aria-hidden="true">📦 </span>Review a batch
+          </span>
+          <span className="text-ink-soft">Hundreds of labels at once, from a spreadsheet and a folder of photos.</span>
+          <span className="mt-2 font-bold text-ink-faint">Coming on Day 4</span>
+        </div>
       </nav>
 
-      <p className="text-sm text-zinc-500">
-        Day 1 placeholder. This URL will keep improving all week.
-      </p>
+      <p className="text-sm text-ink-faint">A prototype for TTB label review. Nothing you upload is stored.</p>
     </main>
   );
 }

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "extract:fixtures": "tsx scripts/time-fixtures.ts"
+    "extract:fixtures": "tsx scripts/time-fixtures.ts",
+    "samples:sync": "mkdir -p public/samples && cp fixtures/labels/*.png public/samples/"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
