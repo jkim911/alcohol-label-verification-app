@@ -132,12 +132,28 @@ caption when it happened.
 | Alcohol content | Parse the number | within ±0.3 | absent where required | outside tolerance |
 | Net contents | Parse number + unit, convert to mL | equal | unit unparseable | not equal |
 | Bottler name / address | Name fuzzy; city/state/ZIP exact; street allows St/Street etc. | all segments OK | street differs beyond abbreviations | city/state/ZIP differ |
-| Country of origin | Only if the application says it's an import | exact match | — | missing or different |
+| Country of origin | Only if the application says it's an import; "Product of X" is normalised to "X" | exact match | — | missing or different |
 | Government warning | Collapse whitespace only; compare verbatim, incl. ALL-CAPS heading | identical | (bold weight can't be checked → note) | any wording/case change |
 
 The key idea to explain: **each field gets the tolerance that matches how
 TTB actually reasons about it.** Brand names vary in casing on real labels;
 the health warning is statutory text and must not.
+
+## The printable report
+
+The verdict view has a print stylesheet: "Print or save as PDF" calls the
+browser's print dialog, where navigation, buttons, and the form are hidden
+and a report header (application, image name, date, "recommendation only")
+is shown. No PDF library; the browser does the work.
+
+## Accessibility behaviours worth knowing
+
+- A skip link appears on the first Tab press.
+- Focus moves to the verdict, the unreadable notice, the error box, the
+  batch results heading, or the detail view's back button as each appears.
+- Status is always colour + glyph (✓ ! ✗ –) + word.
+- Every table row has a "View" button; filter chips expose `aria-pressed`;
+  hints are attached to inputs with `aria-describedby`.
 
 ## Where settings and secrets come from
 

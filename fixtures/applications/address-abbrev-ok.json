@@ -1,0 +1,11 @@
+{
+  "id": "address-abbrev-ok",
+  "productType": "spirits",
+  "brandName": "Hollow Oak",
+  "classType": "Kentucky Straight Bourbon Whiskey",
+  "alcoholContent": 46,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Hollow Oak Distillery, 900 Mill Creek Road, Lexington, KY 40507",
+  "isImport": false,
+  "countryOfOrigin": null
+}

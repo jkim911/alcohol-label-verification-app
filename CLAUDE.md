@@ -3,7 +3,7 @@
 # Alcohol Verification App
 
 AI-assisted alcohol-label verification for TTB compliance agents. A take-home
-prototype built on a 7-day plan; the full spec is in `docs/build-plan.md` —
+prototype built on a 7-day plan (all seven days delivered as of 2026-09-07); the full spec is in `docs/build-plan.md` —
 read §01 (hidden requirements) and §03 (matching rules) before touching the
 matching engine or the UI.
 

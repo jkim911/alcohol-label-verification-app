@@ -14,6 +14,7 @@ import {
 } from "@/lib/batch";
 import { csvToObjects } from "@/lib/csv";
 import { resizeImageForUpload } from "@/lib/image-resize";
+import { SAMPLES } from "@/lib/samples";
 import type { Application } from "@/lib/types";
 import { StatusMark } from "./StatusMark";
 import { VerdictView } from "./VerdictView";
@@ -44,6 +45,17 @@ export function BatchReview() {
   const [loadingSample, setLoadingSample] = useState(false);
   const csvInput = useRef<HTMLInputElement>(null);
   const imgInput = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLHeadingElement>(null);
+  const detailRef = useRef<HTMLButtonElement>(null);
+
+  // Focus follows the work: the results heading when a run finishes, the back button when a row opens.
+  useEffect(() => {
+    if (phase.kind === "done" && !selected) resultsRef.current?.focus();
+  }, [phase.kind, selected]);
+  useEffect(() => {
+    // previewUrl is set one render after `selected`, and the detail view waits for it.
+    if (selected && (previewUrl || !selected.verdict)) detailRef.current?.focus();
+  }, [selected, previewUrl]);
 
   const pairing = useMemo(() => pairImages(applications.map((a) => a.id), images), [applications, images]);
   const ready = applications.length > 0 && pairing.byId.size > 0;
@@ -208,7 +220,7 @@ export function BatchReview() {
   const total = applications.filter((a) => pairing.byId.has(a.id)).length;
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
+    <main id="main" className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link href="/" className="text-sm font-bold uppercase tracking-[0.2em] text-oxblood hover:underline">
@@ -219,7 +231,7 @@ export function BatchReview() {
         {phase.kind === "setup" && (
           <button type="button" className="btn-secondary" onClick={loadSampleBatch} disabled={loadingSample}>
             <span aria-hidden="true">🧪 </span>
-            {loadingSample ? "Loading sample batch…" : "Try a sample batch (11 labels)"}
+            {loadingSample ? "Loading sample batch…" : `Try a sample batch (${SAMPLES.length} labels)`}
           </button>
         )}
       </header>
@@ -234,18 +246,24 @@ export function BatchReview() {
       {/* ---------------- Detail view ---------------- */}
       {selected && selected.verdict && previewUrl && (
         <section className="flex flex-col gap-4">
-          <button type="button" className="btn-secondary self-start" onClick={() => setSelected(null)}>
+          <button ref={detailRef} type="button" className="btn-secondary self-start" onClick={() => setSelected(null)}>
             ← Back to all results
           </button>
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-ink-faint">
             {selected.id} · {selected.application.brandName}
           </p>
-          <VerdictView verdict={selected.verdict} imageUrl={previewUrl} onRestart={() => setSelected(null)} onEdit={() => setSelected(null)} />
+          <VerdictView
+            verdict={selected.verdict}
+            imageUrl={previewUrl}
+            onRestart={() => setSelected(null)}
+            onEdit={() => setSelected(null)}
+            context={{ applicationLabel: `${selected.application.brandName} (${selected.id})`, sourceName: pairing.byId.get(selected.id)?.name }}
+          />
         </section>
       )}
       {selected && !selected.verdict && (
         <section className="rise flex flex-col gap-4 rounded-2xl border-2 border-review bg-review-soft p-6 shadow-card">
-          <button type="button" className="btn-secondary self-start" onClick={() => setSelected(null)}>
+          <button ref={detailRef} type="button" className="btn-secondary self-start" onClick={() => setSelected(null)}>
             ← Back to all results
           </button>
           <h2 className="font-display text-3xl font-semibold">
@@ -364,7 +382,7 @@ export function BatchReview() {
       {!selected && (phase.kind === "running" || phase.kind === "done") && (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-2xl font-semibold">
+            <h2 ref={resultsRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">
               {phase.kind === "done" ? `Results for ${results.length} labels in ${elapsed.toFixed(0)} s` : "Results so far"}
             </h2>
             {phase.kind === "done" && (
@@ -385,7 +403,8 @@ export function BatchReview() {
                 key={k}
                 type="button"
                 onClick={() => setFilter(k)}
-                className={`rounded-full border-2 px-4 py-2 font-bold ${filter === k ? "border-oxblood bg-oxblood text-card" : "border-rule-strong bg-card"}`}
+                aria-pressed={filter === k}
+                className={`min-h-11 rounded-full border-2 px-4 py-2 font-bold ${filter === k ? "border-oxblood bg-oxblood text-card" : "border-rule-strong bg-card"}`}
               >
                 {k === "all" ? `All (${results.length})` : `${BATCH_STATUS_LABEL[k]} (${counts[k]})`}
               </button>
@@ -411,6 +430,9 @@ export function BatchReview() {
                   <th scope="col" className="px-4 py-3">ID</th>
                   <th scope="col" className="px-4 py-3">What to look at</th>
                   <th scope="col" className="px-4 py-3 text-right">Time</th>
+                  <th scope="col" className="px-4 py-3">
+                    <span className="sr-only">Open</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -430,17 +452,27 @@ export function BatchReview() {
                     <td className="px-4 py-3 text-ink-soft">{r.id}</td>
                     <td className="max-w-md px-4 py-3 text-ink-soft">{r.note}</td>
                     <td className="px-4 py-3 text-right text-ink-soft">{(r.durationMs / 1000).toFixed(1)} s</td>
+                    <td className="px-2 py-3">
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-full border-2 border-rule-strong px-3 font-bold text-oxblood hover:border-oxblood"
+                        onClick={(e) => { e.stopPropagation(); setSelected(r); }}
+                        aria-label={`Open details for ${r.application.brandName} (${r.id})`}
+                      >
+                        View
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {visible.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-ink-soft">Nothing here yet.</td>
+                    <td colSpan={6} className="px-4 py-6 text-center text-ink-soft">Nothing here yet.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-ink-soft">Click any row for the full field-by-field view. These are recommendations; nothing is approved or rejected until you decide.</p>
+          <p className="text-sm text-ink-soft">Open any row for the full field-by-field view. These are recommendations; nothing is approved or rejected until you decide.</p>
         </section>
       )}
     </main>

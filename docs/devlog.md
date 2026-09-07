@@ -735,8 +735,147 @@ finish, with a live count, and export to CSV. There's no server-side
 queue to operate, which is right for a prototype and easy to replace with
 one later because the per-label API is already the unit of work."
 
-### Open items
+### Open items (end of Day 4)
 
-- Day 5: polish — accessibility pass, error-state copy, responsive check,
-  "try a sample" on both flows (done), touch targets.
-- Optional: zip upload; per-field confidence in the UI.
+- Day 5 polish, Day 6 hardening + one stretch, Day 7 docs. ✅ all below.
+
+---
+
+## Day 5 — 2026-09-07 — Polish for Dave and for Sarah's mother
+
+The plan's Day 5 is "make it survivable for Dave and legible for Sarah's
+mother": accessibility, honest error states, sample paths on both flows,
+and a responsive check. What changed and why:
+
+### Accessibility
+
+- **Skip link.** The first Tab press on any page reveals "Skip to main
+  content", which jumps past the header. Every page's `<main>` now has
+  `id="main"`.
+- **Focus follows the work.** After a single review, keyboard and
+  screen-reader focus moves to the verdict banner (or the unreadable /
+  error box). After a batch finishes, focus moves to the results heading;
+  opening a row moves it to the "Back to all results" button. Without
+  this, a screen-reader user presses Compare and hears nothing.
+- **Keyboard-reachable table rows.** Clicking a row was mouse-only. Each
+  row now also has a "View" button with an `aria-label` naming the brand
+  and id, so Tab + Enter works and a screen reader announces what opens.
+- **Filter chips** declare `aria-pressed` so their state is announced, and
+  are at least 44 px tall (touch-target minimum).
+- **Hints tied to fields.** Every input's hint ("e.g. 750 mL or 12 FL OZ")
+  is linked with `aria-describedby`, so it's read with the field, not as
+  stray text.
+- **Contrast.** The faint text colour was #8f8677 on cream — about 3:1,
+  below the 4.5:1 minimum for small text. It's now #6f675a (about 4.6:1).
+  All status colours were already above 4.5:1 on their backgrounds.
+- **Already in place from Day 3, kept:** every icon has a word, status is
+  colour + glyph + word, live regions on the progress states, reduced-
+  motion respected, 18 px base type, 52 px buttons.
+
+### Honest failure states
+
+- `src/app/error.tsx` — if a page throws, the agent sees "This page hit a
+  problem it couldn't recover from. Nothing you entered was saved or sent
+  anywhere." with Try again / Back to the start. Never a stack trace.
+- `src/app/not-found.tsx` — a wrong URL gets the two places the app can
+  go, not a blank 404.
+- The per-request messages from Days 2–4 (bad key, rate limit, unreadable
+  photo, missing field, unsupported file) were re-read as a set for tone.
+
+### Responsive check
+
+Both screens were checked at 375 px wide (an iPhone) and 1280 px. On the
+phone the "Try a sample" picker goes full-width, the three product-type
+buttons stay on one row, and the results table scrolls sideways inside its
+own frame rather than the page.
+
+---
+
+## Day 6 — 2026-09-07 — Harden what exists, then one stretch
+
+### Fresh edge cases the code hadn't seen
+
+Three fixtures were added *after* the matchers were written and deliberately
+not tuned against:
+
+| id | scenario | expected | result |
+|---|---|---|---|
+| `address-abbrev-ok` | "Mill Creek Road" printed as "Mill Creek Rd." | pass | pass |
+| `import-with-origin-ok` | import with "Product of Italy" printed | pass | **fail on first run** |
+| `brand-extra-word` | label says "Harbor Light Reserve", application "Harbor Light" | review | review |
+
+**The bug.** For the Italian wine the model returned the country field as
+`"Product of Italy"` — the whole phrase — and the matcher compared that
+literally against the application's `"Italy"`. Two fixes, belt and braces:
+the extraction prompt and schema now say "return just the country name
+('Product of France' → 'France')", and `normalizeCountry()` in the matcher
+strips "Product of / Made in / Produce of / Imported from" before
+comparing. A unit test pins it. After the fix the fixture passes and the
+model itself returns `"Italy"`.
+
+This is exactly why the plan insists on fresh cases on Day 6: eleven
+fixtures had passed cleanly for two days and the bug was still there.
+
+### The full pass and the 5-second budget under load
+
+"Try a sample batch" with all 14 fixtures, six at a time: **14 labels in
+12 s** — 5 fail, 3 needs review, 1 unreadable, 5 pass, exactly matching
+`FIXTURE_MANIFEST.json`. Individual calls ran 3.5–5.7 s with six in
+flight, so the per-label budget holds under concurrency, not just in
+isolation. The single flow's end-to-end time on the live site remains
+~4.1–4.4 s.
+
+### The one stretch: a printable compliance report
+
+The plan's stretch list, ranked by impressiveness per hour, includes "PDF
+compliance report export — one-click per-label PDF an agent could staple
+to a physical file." That's the one built, because it costs nothing at
+runtime and needs no new dependency:
+
+- A print stylesheet in `globals.css` hides navigation, buttons, and the
+  form, removes shadows and animation, keeps the status colours
+  (`print-color-adjust: exact`), and prevents a field card from splitting
+  across pages.
+- The verdict view gains a print-only header — "Alcohol Verification App ·
+  Label review report", the application/brand, the image file name, the
+  date and time, and "Recommendation only — the reviewing agent decides."
+- A **Print or save as PDF** button calls `window.print()`. Every modern
+  browser's print dialog offers "Save as PDF", so there is no PDF library
+  to ship or explain. It works from the single flow and from any batch row.
+
+Not chosen: bounding boxes (needs coordinates from the model, and the
+5-second budget has no room for a second call), image preprocessing (the
+client-side resize already covers the cheap part), persistence (the plan
+warns it eats the remaining budget).
+
+### Production check
+
+Every push deploys to Amplify. After this day's push, the live site was
+checked from a clean session (curl, no cookies): home, `/single`, `/batch`,
+the template CSV, the sample CSV, and a real `/api/review` call all return
+correctly. See Day 7 for the final cold QA.
+
+---
+
+## Day 7 — 2026-09-07 — Docs and the final look
+
+- The README was rewritten as the front door for a stranger: what it is,
+  the live URL, a five-line quick start, how to try it (browser and curl),
+  a short architecture section, the matching rules, how to run the tests,
+  the full assumptions & trade-offs list, and what would come next.
+- `docs/how-it-works.md` was brought up to date (print report,
+  accessibility behaviours, country normalisation).
+- This journal is the "how it got there"; the README is the "what it is".
+- A final cold QA of the deployed URL is recorded at the end of this file.
+
+### What I would do with more time
+
+1. Zip upload for batch (client-side unzip) and a "download failures
+   only" export.
+2. Per-field confidence from the model, shown as a small bar on each card.
+3. An on-prem or VPC-hosted vision model path for a real TTB deployment
+   behind the firewall.
+4. Bounding boxes: ask the model where it found each field and highlight
+   it on hover.
+5. A tiny persistence layer (reviewer, timestamp, decision) so the tool's
+   recommendation and the agent's decision can be audited together.

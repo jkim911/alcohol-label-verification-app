@@ -14,12 +14,16 @@ export function VerdictView({
   imageUrl,
   onRestart,
   onEdit,
+  context,
 }: {
   verdict: ReviewVerdict;
   imageUrl: string;
   onRestart: () => void;
   onEdit: () => void;
+  /** Extra lines for the printed report header. */
+  context?: { applicationLabel?: string; sourceName?: string };
 }) {
+  const printedAt = new Date().toLocaleString("en-US", { dateStyle: "long", timeStyle: "short" });
   const copy = OVERALL_COPY[verdict.overall];
   const s = statusStyles(verdict.overall);
   const counts = verdict.fields.reduce(
@@ -33,6 +37,14 @@ export function VerdictView({
 
   return (
     <section aria-labelledby="verdict-title" className="flex flex-col gap-8">
+      <header className="print-only border-b-2 border-ink pb-3">
+        <p className="text-sm font-bold uppercase tracking-[0.2em]">Alcohol Verification App · Label review report</p>
+        <p className="text-sm">
+          {context?.applicationLabel ? `Application: ${context.applicationLabel} · ` : ""}
+          {context?.sourceName ? `Image: ${context.sourceName} · ` : ""}
+          Reviewed {printedAt} · Recommendation only — the reviewing agent decides.
+        </p>
+      </header>
       <div className={`rise flex flex-col gap-4 rounded-2xl border-2 p-6 shadow-card sm:flex-row sm:items-center ${s.soft} border-current ${s.text}`}>
         <StatusMark status={verdict.overall} size="lg" />
         <div className="flex-1">
@@ -70,6 +82,9 @@ export function VerdictView({
           <strong className="text-ink">This is a recommendation.</strong> Nothing is approved or rejected until you decide.
         </p>
         <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => window.print()} className="btn-secondary">
+            <span aria-hidden="true">🖨 </span>Print or save as PDF
+          </button>
           <button type="button" onClick={onEdit} className="btn-secondary">
             <span aria-hidden="true">✎ </span>Change details
           </button>

@@ -11,6 +11,7 @@ import {
   matchCountryOfOrigin,
   matchGovernmentWarning,
   matchNetContents,
+  normalizeCountry,
 } from "./index";
 import { STATUTORY_WARNING } from "./warning";
 import { parseVolume } from "./units";
@@ -184,6 +185,10 @@ describe("matchCountryOfOrigin (exact, conditional)", () => {
   });
   it("import with exact match → pass", () => {
     expect(matchCountryOfOrigin(app({ isImport: true, countryOfOrigin: "France" }), label({ countryOfOrigin: "FRANCE" })).status).toBe("pass");
+  });
+  it("'Product of Italy' on the label matches application 'Italy' (found by the Day 6 fixture)", () => {
+    expect(matchCountryOfOrigin(app({ isImport: true, countryOfOrigin: "Italy" }), label({ countryOfOrigin: "Product of Italy" })).status).toBe("pass");
+    expect(normalizeCountry("Made in ITALY.")).toBe("italy");
   });
   it("import with a different country → fail", () => {
     expect(matchCountryOfOrigin(app({ isImport: true, countryOfOrigin: "France" }), label({ countryOfOrigin: "Italy" })).status).toBe("fail");

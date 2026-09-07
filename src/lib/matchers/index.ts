@@ -318,6 +318,13 @@ export const matchBottlerNameAddress: Matcher = (app, label) => {
 // ---------------------------------------------------------------------------
 // Country of origin — exact, imports only
 // ---------------------------------------------------------------------------
+/** "Product of Italy", "Made in ITALY", "Produce of Italy" → "italy". */
+export function normalizeCountry(value: string): string {
+  return normalize(value)
+    .replace(/^(product|produce|made|bottled|imported)\s+(of|in|from)\s+/, "")
+    .replace(/^(the\s+)/, "")
+    .replace(/[.]+$/, "");
+}
 export const matchCountryOfOrigin: Matcher = (app, label) => {
   const field: LabelField = "countryOfOrigin";
   const expected = app.countryOfOrigin;
@@ -350,7 +357,7 @@ export const matchCountryOfOrigin: Matcher = (app, label) => {
       reason: `Imports must state a country of origin (e.g. 'Product of ${expected}'), and none was found on the label.`,
     };
   }
-  if (normalize(actual) === normalize(expected)) {
+  if (normalizeCountry(actual) === normalizeCountry(expected)) {
     return { field, status: "pass", expected, actual, reason: "Country of origin matches." };
   }
   return {

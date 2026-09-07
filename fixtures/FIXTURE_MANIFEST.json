@@ -50,6 +50,21 @@
     "expected": "unreadable \u2014 heavy blur; extraction should report low confidence, not a verdict"
   },
   {
+    "id": "address-abbrev-ok",
+    "product": "spirits",
+    "expected": "pass \u2014 street abbreviated (Road -> Rd.), same address"
+  },
+  {
+    "id": "import-with-origin-ok",
+    "product": "wine",
+    "expected": "pass \u2014 import with 'Product of Italy' printed"
+  },
+  {
+    "id": "brand-extra-word",
+    "product": "beer",
+    "expected": "review \u2014 label adds 'Reserve' to the brand name"
+  },
+  {
     "id": "net-contents-unit-diff",
     "product": "beer",
     "expected": "pass \u2014 net contents unit differs, same volume"

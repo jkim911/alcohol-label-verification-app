@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-12 px-6 py-16">
+    <main id="main" className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-12 px-6 py-16">
       <header className="rise flex flex-col gap-4">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-oxblood">Alcohol Verification App</p>
         <h1 className="font-display text-[2.6rem] leading-[1.05] font-semibold sm:text-6xl">

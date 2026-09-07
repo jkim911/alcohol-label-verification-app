@@ -1,0 +1,11 @@
+{
+  "id": "import-with-origin-ok",
+  "productType": "wine",
+  "brandName": "Villa Serena",
+  "classType": "Chianti Classico",
+  "alcoholContent": 13.5,
+  "netContents": "750 mL",
+  "bottlerNameAddress": "Imported by Serena Wine Imports LLC, 40 Front St, Brooklyn, NY 11201",
+  "isImport": true,
+  "countryOfOrigin": "Italy"
+}

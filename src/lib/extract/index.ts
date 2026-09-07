@@ -42,7 +42,9 @@ export const LabelExtractionSchema = z.object({
   countryOfOrigin: z
     .string()
     .nullable()
-    .describe("Country of origin ONLY if explicitly stated (e.g. 'Product of France'). Null otherwise."),
+    .describe(
+      "The country of origin ONLY if the label explicitly states one (e.g. 'Product of France' → 'France'). Return just the country name. Null otherwise.",
+    ),
   governmentWarning: z
     .string()
     .nullable()
@@ -69,7 +71,7 @@ Transcribe what is PRINTED on the label into the requested fields. Rules:
 - Copy text exactly as printed. Never correct spelling, casing, or punctuation. Never fill in what "should" be there.
 - If a field is not on the label, return null for it. Do not guess.
 - alcoholContent is the percentage as a number (e.g. "45% Alc./Vol." -> 45). Ignore proof.
-- countryOfOrigin is only a statement like "Product of France" or "Made in Italy". An address is not a country of origin.
+- countryOfOrigin comes only from a statement like "Product of France" or "Made in Italy"; return just the country ("France", "Italy"). An address is not a country of origin.
 - governmentWarning must be the complete warning text verbatim, including the heading, with the original capitalization of every word. The heading's casing is evidence: if the label prints "Government Warning:" in title case, return exactly "Government Warning:" — never convert it to "GOVERNMENT WARNING:". Likewise never lowercase a heading that is printed in capitals.
 - confidence reflects legibility. Below 0.5 means a reviewer should not trust these fields.
 - If the image is not readable enough to transcribe reliably, set unreadableReason and still return whatever you could read.`;

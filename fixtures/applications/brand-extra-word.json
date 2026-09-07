@@ -1,0 +1,11 @@
+{
+  "id": "brand-extra-word",
+  "productType": "beer",
+  "brandName": "Harbor Light",
+  "classType": "American Pale Ale",
+  "alcoholContent": 5.6,
+  "netContents": "12 FL OZ",
+  "bottlerNameAddress": "Harbor Light Brewing Co., 220 Wharf St, Portland, ME 04101",
+  "isImport": false,
+  "countryOfOrigin": null
+}

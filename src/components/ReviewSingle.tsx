@@ -53,6 +53,14 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const [resizeNote, setResizeNote] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // Move keyboard/screen-reader focus to the outcome once it exists.
+  useEffect(() => {
+    if (phase.kind === "verdict" || phase.kind === "unreadable" || phase.kind === "error") {
+      resultRef.current?.focus();
+    }
+  }, [phase.kind]);
 
   // Keep an object URL for the preview and revoke it when the file changes.
   useEffect(() => {
@@ -175,7 +183,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
+    <main id="main" className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link href="/" className="text-sm font-bold uppercase tracking-[0.2em] text-oxblood hover:underline">
@@ -184,10 +192,10 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
           <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">Review one label</h1>
         </div>
         {phase.kind === "input" && (
-          <label className="flex flex-col gap-1 text-sm font-bold">
+          <label className="flex w-full flex-col gap-1 text-sm font-bold sm:w-auto">
             <span>Try a sample</span>
             <select
-              className="field-input min-w-72"
+              className="field-input sm:min-w-72"
               value={sampleId}
               onChange={(e) => loadSample(e.target.value)}
               aria-label="Load a sample application and label"
@@ -204,18 +212,21 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
       </header>
 
       {phase.kind === "verdict" && previewUrl && (
+        <div ref={resultRef} tabIndex={-1} className="outline-none">
         <VerdictView
           verdict={phase.verdict}
           imageUrl={previewUrl}
           onRestart={restart}
           onEdit={() => setPhase({ kind: "input" })}
+          context={{ applicationLabel: form.brandName, sourceName: file?.name ?? "" }}
         />
+        </div>
       )}
 
       {phase.kind === "unreadable" && (
-        <section className="rise flex flex-col gap-4 rounded-2xl border-2 border-review bg-review-soft p-6 shadow-card">
+        <section ref={resultRef} tabIndex={-1} aria-labelledby="unreadable-title" className="rise flex flex-col gap-4 rounded-2xl border-2 border-review bg-review-soft p-6 shadow-card outline-none">
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-review">No verdict · Photo unreadable</p>
-          <h2 className="font-display text-3xl font-semibold">We couldn&apos;t read this label clearly.</h2>
+          <h2 id="unreadable-title" className="font-display text-3xl font-semibold">We couldn&apos;t read this label clearly.</h2>
           <p className="text-ink">{phase.reason}</p>
           <p className="text-ink-soft">
             Try a straighter, better-lit photo of just the label, with the text filling the frame. Nothing was
@@ -233,7 +244,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
       )}
 
       {phase.kind === "error" && (
-        <div role="alert" className="rise flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-fail bg-fail-soft p-5">
+        <div ref={resultRef} tabIndex={-1} role="alert" className="rise flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-fail bg-fail-soft p-5 outline-none">
           <p className="text-ink">
             <strong>Couldn&apos;t complete the review.</strong> {phase.message}
           </p>
@@ -331,8 +342,8 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
             </div>
             <div>
               <label htmlFor="bottler" className="field-label">Bottler name & address</label>
-              <textarea id="bottler" rows={2} className="field-input" value={form.bottlerNameAddress} onChange={(e) => update("bottlerNameAddress", e.target.value)} />
-              <p className="field-hint">Name, street, city, state ZIP — as on the application.</p>
+              <textarea id="bottler" rows={2} className="field-input" aria-describedby="bottler-hint" value={form.bottlerNameAddress} onChange={(e) => update("bottlerNameAddress", e.target.value)} />
+              <p id="bottler-hint" className="field-hint">Name, street, city, state ZIP — as on the application.</p>
             </div>
 
             <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 border-rule-strong bg-card px-4 font-bold">
@@ -392,8 +403,19 @@ function Field({
       <label htmlFor={id} className="field-label">
         {label}
       </label>
-      <input id={id} className="field-input" value={value} inputMode={inputMode} onChange={(e) => onChange(e.target.value)} />
-      {hint && <p className="field-hint">{hint}</p>}
+      <input
+        id={id}
+        className="field-input"
+        value={value}
+        inputMode={inputMode}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {hint && (
+        <p id={`${id}-hint`} className="field-hint">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

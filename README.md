@@ -3,77 +3,160 @@
 **Live:** https://main.dhvxptf4pufyq.amplifyapp.com/ (AWS Amplify Hosting, deploys from `main`)
 
 AI-assisted alcohol-label verification for TTB compliance review. Give it what
-the applicant submitted and a photo of the physical label; it tells an agent,
-field by field, whether they agree — **Pass**, **Needs review**, or **Fail** —
-with a plain-English reason for each. The agent makes the final call.
+the applicant submitted and a photo of the physical label; in about four
+seconds it tells an agent, field by field, whether they agree — **Pass**,
+**Needs review**, or **Fail** — with a plain-English reason for each. The agent
+makes the final call. Nothing is stored.
 
-> Status: Day 4. Single-label review at `/single` and batch review at
-> `/batch` (CSV + photos, live progress, results table, CSV export) both
-> work end to end. Polish and hardening are next. See `docs/build-plan.md` for the full 7-day plan,
-> `docs/devlog.md` for a step-by-step journal of the build, and
-> `docs/how-it-works.md` for how the app works under the hood.
+Two flows: **review one label** (upload → compare → verdict) and **review a
+batch** (a CSV of applications plus a folder of photos → live progress → a
+filterable results table → CSV export). Both have a "try a sample" path, so
+you can test without your own images.
 
-## Setup & run
+> Built as a 7-day take-home. `docs/build-plan.md` is the plan,
+> `docs/devlog.md` is the day-by-day journal with every decision and bug,
+> and `docs/how-it-works.md` explains the request path under the hood.
 
-Requires Node 22 (`.nvmrc`) and npm.
+## Quick start
+
+Requires Node 22 (`.nvmrc`) and an Anthropic API key.
 
 ```bash
 npm install
-cp .env.example .env.local   # add your ANTHROPIC_API_KEY
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local        # add ANTHROPIC_API_KEY=...
+npm run dev                       # http://localhost:3000
 ```
 
-Other scripts:
+## Try it
+
+**In the browser:** open http://localhost:3000/single, pick a sample from
+"Try a sample" (or drop your own photo and fill in the form), press
+**Compare**. For batch, open http://localhost:3000/batch and press **Try a
+sample batch**, or download the CSV template, add one row per label with an
+`id` matching each photo's file name, and choose the photos.
+
+**From the terminal:**
 
 ```bash
-npm test                  # unit tests (vitest)
+# read a label
+curl -s -X POST -F "image=@fixtures/labels/warning-lowercase.png" http://localhost:3000/api/extract | python3 -m json.tool
+
+# full review: label + application → verdict
+curl -s -X POST -F "image=@fixtures/labels/warning-lowercase.png" \
+  -F "application=$(cat fixtures/applications/warning-lowercase.json)" \
+  http://localhost:3000/api/review | python3 -m json.tool
+
+# time every fixture through the model
+npm run extract:fixtures
+```
+
+Swap `http://localhost:3000` for the live URL to hit the deployment.
+
+## How it works
+
+```
+browser ──▶ /single or /batch (Next.js, React)
+              │  photo shrunk in the browser (canvas, ≤1800px JPEG)
+              ▼
+         POST /api/review  ──▶  src/lib/extract   one Claude vision call,
+              │                                    structured output (zod)
+              │                 src/lib/matchers   seven pure functions,
+              │                                    one tolerance rule each
+              ▼
+         { verdict }  ──▶  banner + photo + one card per field
+```
+
+- **Extraction** is one multimodal Claude call (`claude-sonnet-5` by default)
+  whose reply must match a zod schema, so the label becomes validated data,
+  not free text. Every field is nullable: "not on the label" is a real answer.
+  Unreadable photos come back with a reason and a low confidence, and the UI
+  shows "we couldn't read this" instead of a verdict.
+- **Matching** is pure TypeScript with a different tolerance per field
+  (table below). Every result is one of three states and carries a sentence
+  an agent can read, never a raw diff. The overall recommendation is the
+  worst applicable field.
+- **Batch** fans out from the browser: rows are paired to photos by file
+  name, six reviews run at a time against the same route, results stream
+  into the table as they finish, and export to CSV. No queue to operate.
+- **Hosting:** AWS Amplify builds on every push (`amplify.yml`); static
+  pages go to CloudFront and the API routes run on Lambda.
+
+### The matching rules
+
+| Field | Compared how | Pass | Needs review | Fail |
+|---|---|---|---|---|
+| Brand name | edit-distance similarity after normalising case/space/quotes | ≥ 90 % | 70–90 %, or one word added/missing | otherwise |
+| Class / type | set of words | identical | reordered, or a qualifier added/dropped | otherwise |
+| Alcohol content | number | within ±0.3 | absent where required | outside tolerance |
+| Net contents | number + unit → mL | equal within 1 % | unparseable | different volume |
+| Bottler name / address | name fuzzy; city/state/ZIP exact; street abbreviations normalised | all agree | street or name slightly off | city/state/ZIP differ |
+| Country of origin | imports only; "Product of X" → "X" | exact | — | missing or different |
+| Government warning | verbatim against 27 CFR 16.21; heading must be ALL CAPS | identical (whitespace aside) | — | any wording or case change |
+
+### Latency
+
+The interviews' hard rule is a result in under five seconds. Measured on the
+fixtures: Claude Opus 5 read every label correctly but took ~5.8 s per call;
+Claude Sonnet 5 took ~3.9 s and, after one prompt adjustment, matched Opus on
+accuracy. Sonnet is the default; `EXTRACTION_MODEL` switches it. A full
+single review on the live site runs ~4.1–4.4 s; a 14-label batch, six at a
+time, finishes in ~12 s.
+
+## Tests and checks
+
+```bash
+npm test          # 71 unit tests: matchers, verdict, CSV, batch pairing/pool, resize math, route validation
 npm run lint
 npm run build
-npm run extract:fixtures  # read every fixture label with Claude and print latency
 ```
 
-### Try it in the browser
+Fourteen fixtures in `fixtures/` cover every rule and both failure paths
+(see `fixtures/README.md`), including three added after the code was written
+as untuned edge cases — one of which found a real bug (see the devlog, Day 6).
 
-Open http://localhost:3000/single, pick one of the 11 samples from "Try a sample"
-(or upload your own photo and fill in the form), and press **Compare**.
+## Project layout
 
-For batch mode, open http://localhost:3000/batch and press **Try a sample batch**,
-or download the CSV template, fill one row per label with an `id` matching each
-photo's file name, and choose the photos.
-
-### Try the extraction endpoint
-
-With the dev server running, send any fixture label (or your own photo):
-
-```bash
-curl -s -X POST -F "image=@fixtures/labels/stones-throw-ok.png" http://localhost:3000/api/extract | python3 -m json.tool
 ```
-
-The same call works against the live deployment by swapping the host for
-`https://main.dhvxptf4pufyq.amplifyapp.com`.
-
-## Approach
-
-- **Next.js App Router + TypeScript + Tailwind** — one repo, one deploy target; API routes are the backend, so there is no second service to stand up.
-- **One multimodal Claude call for extraction** (`src/lib/extract/`) with a strict JSON schema (zod → structured output). A single call beats an OCR-then-NLP pipeline on both latency and accuracy against stylized label fonts, and it's one thing to time against the 5-second budget. Default model is `claude-sonnet-5` (~3.9 s median on the fixtures); `EXTRACTION_MODEL` switches it. `npm run extract:fixtures` times every fixture.
-- **Pure-TypeScript matching engine** (`src/lib/matchers/`), one function per field, each with its own tolerance: fuzzy (Levenshtein) for brand and bottler name, word-set comparison for class/type, ±0.3 ABV, unit-normalized net contents, exact-only for country of origin (imports) and the government warning (checked against the statutory text). Every result is pass / needs review / fail with a plain-English reason. 52 unit tests, no network.
-- **Batch mode** fans out from the browser: rows are paired to photos by file name, each photo is shrunk client-side (canvas, ≤1800 px, JPEG), and six reviews run at a time against the same `/api/review` route. Results stream into a filterable table and export to CSV. No queue infrastructure for a prototype.
-- **No storage.** The prototype is stateless by design.
-- **Deployed on AWS Amplify Hosting** from the `main` branch. Amplify builds the app with `amplify.yml`, serves static pages from CloudFront, and runs the API route handlers on Lambda.
+src/app/            pages (/, /single, /batch) and API routes (/api/extract, /api/review)
+src/components/     ReviewSingle, BatchReview, VerdictView, StatusMark
+src/lib/types.ts    Application, LabelExtraction, FieldResult, ReviewVerdict
+src/lib/extract/    the Claude call and its schema
+src/lib/matchers/   text, units, address, warning helpers + the seven matchers
+src/lib/verdict.ts  roll-up and the unreadable rule
+src/lib/csv.ts      CSV parse/serialise;  src/lib/batch.ts  pairing, pool, export
+src/lib/image-resize.ts  browser-side downscale used by both uploads
+fixtures/           sample applications + label images + generator
+scripts/            time-fixtures.ts, sync-samples.ts
+docs/               build plan, devlog, how-it-works
+```
 
 ## Assumptions & trade-offs
 
-- **No COLA integration.** Application data is entered in a form, loaded from a sample, or uploaded as CSV. Standalone proof-of-concept, per the interviews.
-- **Prototype-grade security.** No authentication and no persistence; nothing sensitive is stored. A production rollout would need auth, audit logging, and a data-retention policy.
-- **External vision API.** Extraction calls a cloud model. A production deployment behind TTB's firewall would need an on-prem OCR/vision model or an approved API allowlist.
-- **Government-warning bold weight is not detected.** Text, casing, and wording are checked exactly; typographic weight is flagged for manual check rather than guessed.
-- **Poor-quality images** (skew, glare, low light) are out of MVP scope. The tool reports "couldn't read this clearly" rather than guessing. Large photos are downscaled in the browser before upload (≤1800 px JPEG).
-- **Batch input is CSV + individual photos.** Zip upload isn't implemented; multi-select in the file dialog covers the workflow.
-- **Model choice favours latency.** Claude Opus 5 read every fixture correctly but averaged ~5.8 s per label, over the 5-second requirement; Claude Sonnet 5 averaged ~3.9 s and matched it on accuracy after a prompt adjustment. Sonnet is the default; Opus is one environment variable away.
+- **No COLA integration.** Application data is typed in, loaded from a
+  sample, or uploaded as CSV. Standalone proof-of-concept, as the interviews
+  asked.
+- **Prototype-grade security.** No authentication and no persistence;
+  nothing sensitive is stored. Production would need auth, audit logging,
+  and a retention policy.
+- **External vision API.** Extraction calls a cloud model. A rollout behind
+  TTB's firewall would need an on-prem/VPC vision model or an approved API
+  allowlist.
+- **Model choice favours latency.** Opus 5 was slightly more robust in
+  testing but never under five seconds; Sonnet 5 is the default. One
+  environment variable swaps them.
+- **Government-warning bold weight is not detected.** Text, casing, and
+  wording are checked exactly; typographic weight is flagged for a visual
+  check rather than guessed.
+- **Poor-quality images** are out of MVP scope. The tool says "couldn't
+  read this clearly" rather than guessing. Large photos are downscaled in
+  the browser before upload.
+- **Batch input is CSV + individual photos.** Zip upload isn't implemented;
+  multi-select in the file dialog covers the workflow.
+- **The report is print-to-PDF**, not a generated file: the browser's print
+  dialog does the work, so there's no PDF library to maintain.
 
-## Sample fixtures
+## What I'd do next
 
-`fixtures/` holds 11 sample applications paired with label images by id, including
-deliberate mismatch cases (casing-only brand difference, ABV off by 0.2 vs 1.0,
-reworded and title-case warnings, address mismatch, import with no country of
-origin) and one deliberately blurry label. See `fixtures/README.md`.
+Zip upload and a failures-only export; per-field confidence shown on each
+card; a VPC-hosted model path; bounding boxes on hover; and a small audit
+table pairing the tool's recommendation with the agent's decision.

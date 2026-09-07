@@ -5,6 +5,9 @@
  */
 import type { Application } from "@/lib/types";
 import abvOffBy02 from "../../fixtures/applications/abv-off-by-0.2.json";
+import addressAbbrevOk from "../../fixtures/applications/address-abbrev-ok.json";
+import brandExtraWord from "../../fixtures/applications/brand-extra-word.json";
+import importWithOriginOk from "../../fixtures/applications/import-with-origin-ok.json";
 import abvOffBy1 from "../../fixtures/applications/abv-off-by-1.json";
 import addressMismatch from "../../fixtures/applications/address-mismatch.json";
 import blurry from "../../fixtures/applications/blurry-unreadable.json";
@@ -36,6 +39,9 @@ const entries: Array<[string, Application]> = [
   ["Class/type words in a different order", classTypeReorder as Application],
   ["Net contents in different units", netContentsUnitDiff as Application],
   ["Blurry photo (can't be read)", blurry as Application],
+  ["Street abbreviated on label (Road → Rd.)", addressAbbrevOk as Application],
+  ["Import with 'Product of Italy' printed", importWithOriginOk as Application],
+  ["Label adds a word to the brand name", brandExtraWord as Application],
 ];
 
 export const SAMPLES: Sample[] = entries.map(([title, application]) => ({
