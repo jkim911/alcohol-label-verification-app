@@ -879,3 +879,27 @@ correctly. See Day 7 for the final cold QA.
    it on hover.
 5. A tiny persistence layer (reviewer, timestamp, decision) so the tool's
    recommendation and the agent's decision can be audited together.
+
+---
+
+## Final cold QA — 2026-09-07, deployed build `b1d7b18`
+
+Run with `curl` from a session with no cookies, immediately after Amplify
+finished the last deploy:
+
+| Check | Result |
+|---|---|
+| `/`, `/single`, `/batch` | 200, correct page content |
+| `/this-does-not-exist` | 404 with the friendly "nothing at this address" page |
+| `/batch-template.csv`, `/samples/batch-sample.csv`, sample images | 200 |
+| `POST /api/review` with the `import-with-origin-ok` fixture | 200, overall **pass**, all seven fields pass, country read as "Italy", 4.3 s server-side / 4.6 s round trip |
+| `POST /api/review` with a text file | 400, "That file type isn't supported. Upload a JPEG, PNG, or WebP image." |
+
+Then in a browser against the live URL: `/single` → sample
+`brand-extra-word` → Compare → **Needs review** banner with focus on it,
+the brand card explaining "the label adds 'reserve'", and the Print button
+present.
+
+Deliverables at submission: this repository (incremental commits, README,
+docs, fixtures), the live URL above, and both flows reachable without
+setup via their "try a sample" paths.
