@@ -76,8 +76,10 @@ browser ──▶ /single or /batch (Next.js, React)
   an agent can read, never a raw diff. The overall recommendation is the
   worst applicable field.
 - **Batch** fans out from the browser: rows are paired to photos by file
-  name, six reviews run at a time against the same route, results stream
-  into the table as they finish, and export to CSV. No queue to operate.
+  name (duplicate ids are reported and skipped), six reviews run at a time
+  against the same route, results stream into the table as they finish,
+  a run can be stopped part-way, and results export to CSV. No queue to
+  operate.
 - **Hosting:** AWS Amplify builds on every push (`amplify.yml`); static
   pages go to CloudFront and the API routes run on Lambda.
 
@@ -99,8 +101,13 @@ The interviews' hard rule is a result in under five seconds. Measured on the
 fixtures: Claude Opus 5 read every label correctly but took ~5.8 s per call;
 Claude Sonnet 5 took ~3.9 s and, after one prompt adjustment, matched Opus on
 accuracy. Sonnet is the default; `EXTRACTION_MODEL` switches it. A full
-single review on the live site runs ~4.1–4.4 s; a 14-label batch, six at a
-time, finishes in ~12 s.
+single review on the live site typically runs ~4 s; a 14-label batch, six at
+a time, finishes in ~12–13 s.
+
+Honest caveat: across three live batch runs (42 calls) the median was
+3.8–4.1 s, but about one call in seven exceeded 5 s (worst 7.1 s), and the
+first run after a deploy was slower still because of Lambda cold starts.
+The budget holds for the typical call, not for every call.
 
 ## Tests and checks
 

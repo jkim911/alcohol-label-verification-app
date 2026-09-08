@@ -72,6 +72,8 @@ export interface Pairing<F extends { name: string }> {
   unmatchedFiles: string[];
   /** Row ids with no image. */
   missingIds: string[];
+  /** Ids that appear more than once in the rows; only the first occurrence is used. */
+  duplicateIds: string[];
 }
 
 /** Pair images to rows by file-name stem, case-insensitively. */
@@ -81,8 +83,15 @@ export function pairImages<F extends { name: string }>(ids: string[], files: F[]
   const byId = new Map<string, F>();
   const missingIds: string[] = [];
   const used = new Set<string>();
+  const seen = new Set<string>();
+  const duplicateIds: string[] = [];
   for (const id of ids) {
     const stem = id.trim().toLowerCase();
+    if (seen.has(stem)) {
+      if (!duplicateIds.includes(id)) duplicateIds.push(id);
+      continue;
+    }
+    seen.add(stem);
     const f = byStem.get(stem);
     if (f) {
       byId.set(id, f);
@@ -92,26 +101,51 @@ export function pairImages<F extends { name: string }>(ids: string[], files: F[]
     }
   }
   const unmatchedFiles = files.filter((f) => !used.has(fileStem(f.name))).map((f) => f.name);
-  return { byId, unmatchedFiles, missingIds };
+  return { byId, unmatchedFiles, missingIds, duplicateIds };
+}
+
+/** Keep the first row for each id (case-insensitive); return the rest as errors naming their row. */
+export function dedupeApplications(apps: Array<{ application: Application; rowNumber: number }>): {
+  applications: Application[];
+  errors: string[];
+} {
+  const seen = new Map<string, number>();
+  const applications: Application[] = [];
+  const errors: string[] = [];
+  for (const { application, rowNumber } of apps) {
+    const key = application.id.trim().toLowerCase();
+    const first = seen.get(key);
+    if (first !== undefined) {
+      errors.push(`Row ${rowNumber} (${application.id}): duplicate id — row ${first} was kept, this one was skipped.`);
+      continue;
+    }
+    seen.set(key, rowNumber);
+    applications.push(application);
+  }
+  return { applications, errors };
 }
 
 /**
  * Run `worker` over `items` with at most `limit` in flight. Results keep
  * the input order. `onSettled` fires as each finishes, for a live count.
+ * Pass an AbortSignal to stop: lanes stop pulling new items once it's
+ * aborted (in-flight work is the worker's to cancel via the same signal),
+ * and unstarted items are left `undefined` in the result array.
  */
 export async function runPool<T, R>(
   items: T[],
   limit: number,
-  worker: (item: T, index: number) => Promise<R>,
+  worker: (item: T, index: number, signal?: AbortSignal) => Promise<R>,
   onSettled?: (done: number, total: number, result: R, index: number) => void,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
+  options: { signal?: AbortSignal } = {},
+): Promise<Array<R | undefined>> {
+  const results = new Array<R | undefined>(items.length);
   let next = 0;
   let done = 0;
   const lanes = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
-    while (next < items.length) {
+    while (next < items.length && !options.signal?.aborted) {
       const i = next++;
-      const r = await worker(items[i], i);
+      const r = await worker(items[i], i, options.signal);
       results[i] = r;
       done++;
       onSettled?.(done, items.length, r, i);

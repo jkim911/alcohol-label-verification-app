@@ -54,6 +54,16 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
   const [preparing, setPreparing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  // "Try a different photo" lives on the unreadable screen, where the file input
+  // isn't mounted. Set this flag, switch phases, and open the picker once it exists.
+  const openPickerOnInput = useRef(false);
+
+  useEffect(() => {
+    if (phase.kind === "input" && openPickerOnInput.current) {
+      openPickerOnInput.current = false;
+      fileInput.current?.click();
+    }
+  }, [phase.kind]);
 
   // Move keyboard/screen-reader focus to the outcome once it exists.
   useEffect(() => {
@@ -233,7 +243,16 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
             compared, so nothing has been marked as a mismatch.
           </p>
           <div className="flex flex-wrap gap-3">
-            <button type="button" className="btn-primary" onClick={() => { setFile(null); setPhase({ kind: "input" }); fileInput.current?.click(); }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setFile(null);
+                setResizeNote(null);
+                openPickerOnInput.current = true;
+                setPhase({ kind: "input" });
+              }}
+            >
               <span aria-hidden="true">📷 </span>Try a different photo
             </button>
             <button type="button" className="btn-secondary" onClick={() => setPhase({ kind: "input" })}>

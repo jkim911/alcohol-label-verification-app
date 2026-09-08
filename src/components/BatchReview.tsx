@@ -6,6 +6,7 @@ import {
   BATCH_STATUS_LABEL,
   type BatchResult,
   type BatchStatus,
+  dedupeApplications,
   pairImages,
   resultsToCsv,
   rowToApplication,
@@ -22,7 +23,7 @@ import { VerdictView } from "./VerdictView";
 /** How many reviews run at once from the browser. Each is one serverless call. */
 const CONCURRENCY = 6;
 
-type Phase = { kind: "setup" } | { kind: "running" } | { kind: "done" };
+type Phase = { kind: "setup" } | { kind: "running" } | { kind: "done"; stopped: boolean };
 
 type SortKey = "order" | "status" | "brand" | "id" | "time";
 const STATUS_ORDER: Record<BatchStatus, number> = { fail: 0, error: 1, unreadable: 2, review: 3, pass: 4 };
@@ -44,6 +45,7 @@ export function BatchReview() {
   const [banner, setBanner] = useState<string | null>(null);
   const [loadingSample, setLoadingSample] = useState(false);
   const csvInput = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const imgInput = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLHeadingElement>(null);
   const detailRef = useRef<HTMLButtonElement>(null);
@@ -85,15 +87,17 @@ export function BatchReview() {
       setBanner("That CSV doesn't have the expected columns. Download the template and start from it.");
       return;
     }
-    const apps: Application[] = [];
+    const parsedRows: Array<{ application: Application; rowNumber: number }> = [];
     const errors: string[] = [];
     rows.forEach((row, i) => {
       const r = rowToApplication(row, i + 2);
       if ("error" in r) errors.push(r.error);
-      else apps.push(r.application);
+      else parsedRows.push({ application: r.application, rowNumber: i + 2 });
     });
-    setApplications(apps);
-    setRowErrors(errors);
+    // Two rows with the same id would otherwise silently overwrite each other.
+    const deduped = dedupeApplications(parsedRows);
+    setApplications(deduped.applications);
+    setRowErrors([...errors, ...deduped.errors]);
     setCsvName(name);
     setBanner(null);
   };
@@ -140,15 +144,18 @@ export function BatchReview() {
     setStartedAt(performance.now());
     setElapsed(0);
     setPhase({ kind: "running" });
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const all = await runPool(
       work,
       CONCURRENCY,
-      async (application): Promise<BatchResult> => {
+      async (application, _i, signal): Promise<BatchResult | null> => {
         const t0 = performance.now();
         try {
           const original = pairing.byId.get(application.id)!;
           const { file } = await resizeImageForUpload(original);
+          if (signal?.aborted) return null;
           const body = new FormData();
           body.append("image", file);
           body.append("application", JSON.stringify(application));
@@ -165,13 +172,19 @@ export function BatchReview() {
         }
       },
       (count, _total, result) => {
+        if (!result) return;
         setDone(count);
         setResults((prev) => [...prev, result]);
       },
+      { signal: controller.signal },
     );
-    setResults(all);
-    setPhase({ kind: "done" });
+    const finished = all.filter((r): r is BatchResult => !!r);
+    setResults(finished);
+    setPhase({ kind: "done", stopped: controller.signal.aborted });
+    abortRef.current = null;
   };
+
+  const stop = () => abortRef.current?.abort();
 
   const reset = () => {
     setPhase({ kind: "setup" });
@@ -345,8 +358,14 @@ export function BatchReview() {
                 Still needed: {[applications.length === 0 && "the CSV", images.length === 0 && "the photos"].filter(Boolean).join(" and ")}.
               </p>
             ) : (
-              <ul className="grid gap-2 sm:grid-cols-3">
+              <ul className={`grid gap-2 ${pairing.duplicateIds.length ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                 <li className="rounded-xl bg-pass-soft p-3"><strong className="text-pass">{pairing.byId.size}</strong> labels ready (row + photo)</li>
+                {pairing.duplicateIds.length > 0 && (
+                  <li className="rounded-xl bg-review-soft p-3">
+                    <strong className="text-review">{pairing.duplicateIds.length}</strong> duplicate ids (first kept)
+                    <span className="block text-sm text-ink-soft">{pairing.duplicateIds.slice(0, 5).join(", ")}</span>
+                  </li>
+                )}
                 <li className={`rounded-xl p-3 ${pairing.missingIds.length ? "bg-review-soft" : "bg-paper-deep"}`}>
                   <strong className={pairing.missingIds.length ? "text-review" : ""}>{pairing.missingIds.length}</strong> rows with no photo
                   {pairing.missingIds.length > 0 && <span className="block text-sm text-ink-soft">{pairing.missingIds.slice(0, 5).join(", ")}{pairing.missingIds.length > 5 ? "…" : ""}</span>}
@@ -374,7 +393,12 @@ export function BatchReview() {
           <div className="h-4 overflow-hidden rounded-full bg-paper-deep">
             <div className="h-full rounded-full bg-oxblood transition-[width] duration-300" style={{ width: `${(done / Math.max(total, 1)) * 100}%` }} />
           </div>
-          <p className="text-ink-soft">{elapsed.toFixed(0)} s elapsed · results appear below as each label finishes.</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-ink-soft">{elapsed.toFixed(0)} s elapsed · results appear below as each label finishes.</p>
+            <button type="button" className="btn-secondary" onClick={stop}>
+              <span aria-hidden="true">■ </span>Stop after the current labels
+            </button>
+          </div>
         </section>
       )}
 
@@ -383,7 +407,11 @@ export function BatchReview() {
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 ref={resultsRef} tabIndex={-1} className="font-display text-2xl font-semibold outline-none">
-              {phase.kind === "done" ? `Results for ${results.length} labels in ${elapsed.toFixed(0)} s` : "Results so far"}
+              {phase.kind === "done"
+                ? phase.stopped
+                  ? `Stopped after ${results.length} of ${total} labels (${elapsed.toFixed(0)} s)`
+                  : `Results for ${results.length} labels in ${elapsed.toFixed(0)} s`
+                : "Results so far"}
             </h2>
             {phase.kind === "done" && (
               <div className="flex flex-wrap gap-3">

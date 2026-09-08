@@ -106,7 +106,7 @@ and a word.
 2. Photos are paired to rows by file-name stem (`pairImages`); the screen
    shows how many are ready, how many rows lack a photo, and how many
    photos lack a row.
-3. On "Review N labels", `runPool` runs six workers. Each worker shrinks
+3. On "Review N labels", `runPool` runs six workers (a Stop button aborts its signal; in-flight labels finish, no new ones start). Each worker shrinks
    its photo with `resizeImageForUpload`, posts to `/api/review` (the same
    route the single flow uses), and returns a `BatchResult`. A callback
    updates the "done / total" count and appends the row to the table.

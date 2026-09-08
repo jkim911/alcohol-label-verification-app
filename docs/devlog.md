@@ -903,3 +903,62 @@ present.
 Deliverables at submission: this repository (incremental commits, README,
 docs, fixtures), the live URL above, and both flows reachable without
 setup via their "try a sample" paths.
+
+---
+
+## QA follow-up — 2026-09-08
+
+An independent review (fresh install, full test/lint/build, live single and
+batch runs with real API calls) came back with one confirmed bug, two
+suggestions, and one observation. All four were acted on.
+
+### Bug: "Try a different photo" didn't open the file picker
+
+On the unreadable screen the button cleared the photo and returned to the
+form, but no file dialog appeared. Root cause: the hidden `<input
+type="file">` is only mounted while the form is showing, so at the moment
+the button's handler ran, `fileInput.current` was `null` and the `.click()`
+silently did nothing. Fix: the handler sets a flag and switches phase; a
+`useEffect` that runs once the form phase renders sees the flag and clicks
+the (now mounted) input. Verified in the browser by instrumenting
+`HTMLInputElement.prototype.click`: not mounted before the click, mounted
+and clicked exactly once after.
+
+The batch screen's CSV and photo inputs were checked for the same
+pattern: they're always mounted alongside their buttons, so they're fine.
+
+### Duplicate ids in a batch CSV
+
+Two rows with the same id used to overwrite each other silently. Now
+`dedupeApplications` keeps the first row and lists the rest under "Why
+rows were skipped" with the row numbers ("Row 9 (abc): duplicate id — row
+4 was kept"), and `pairImages` also reports `duplicateIds` for the pairing
+summary. Both are unit-tested.
+
+### Stopping a running batch
+
+A "Stop after the current labels" button appears while a batch runs. It
+aborts the pool's signal, which stops new labels from starting; the ones
+already in flight finish (their model calls are already paid for) and
+stay in the table. The heading then reads "Stopped after N of M labels".
+`runPool` gained an optional `AbortSignal` and a test that proves it
+stops pulling work.
+
+### Latency variance on the live site
+
+Three back-to-back runs of all 14 fixtures, six at a time, against the
+deployed build (`curl`, real API calls):
+
+| Run | Median | Max | Calls over 5 s |
+|---|---|---|---|
+| 1 (first after a deploy) | 4.1 s | 7.1 s | 6 of 14 |
+| 2 | 3.8 s | 5.3 s | 2 of 14 |
+| 3 | 3.8 s | 6.1 s | 1 of 14 |
+
+So the typical call is well inside the budget, but roughly one call in
+seven runs over it, and the first run after a deploy is worse (Lambda cold
+starts on top of model variance). The README now says this plainly rather
+than presenting 5 seconds as guaranteed. If it mattered in production, the
+levers would be: warm the function (provisioned concurrency), lower batch
+concurrency so fewer calls contend, and show the per-label time in the
+table — which it already does.
