@@ -27,6 +27,7 @@ matching engine or the UI.
 ## Conventions
 
 - Shared types live in `src/lib/types.ts`; don't redefine field lists elsewhere — use `LABEL_FIELDS`.
+- Visual language (2026-09-08): clean compliance SaaS. Public Sans only (no display serif), slate/white tokens with one blue accent (`@theme` in `globals.css`), 0.5rem radii, 1px borders, subtle shadows, 150ms opacity fades only where they accompany a focus move. Icons are `lucide-react` — never emoji — always `aria-hidden` beside a text label. Status = colour + icon + word. Keep every colour pair ≥ 4.5:1.
 - Matchers take `(application, extraction)` and return a `FieldResult`. No I/O in `src/lib/matchers/`.
 - Fixtures: `fixtures/applications/<id>.json` paired with `fixtures/labels/<id>.*`.
 - Secrets only in `.env.local` (git-ignored); `.env.example` documents them.

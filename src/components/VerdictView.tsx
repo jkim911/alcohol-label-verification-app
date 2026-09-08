@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Printer, RotateCcw } from "lucide-react";
+
 import { LABEL_FIELD_NAMES, type FieldResult, type ReviewVerdict } from "@/lib/types";
 import { STATUS_LABEL, StatusMark, statusStyles } from "./StatusMark";
 
@@ -38,18 +40,18 @@ export function VerdictView({
   return (
     <section aria-labelledby="verdict-title" className="flex flex-col gap-8">
       <header className="print-only border-b-2 border-ink pb-3">
-        <p className="text-sm font-bold uppercase tracking-[0.2em]">Alcohol Verification App · Label review report</p>
+        <p className="text-sm font-bold uppercase tracking-wide">Alcohol Verification App · Label review report</p>
         <p className="text-sm">
           {context?.applicationLabel ? `Application: ${context.applicationLabel} · ` : ""}
           {context?.sourceName ? `Image: ${context.sourceName} · ` : ""}
           Reviewed {printedAt} · Recommendation only — the reviewing agent decides.
         </p>
       </header>
-      <div className={`rise flex flex-col gap-4 rounded-2xl border-2 p-6 shadow-card sm:flex-row sm:items-center ${s.soft} border-current ${s.text}`}>
+      <div className={`rise flex flex-col gap-4 rounded-lg border p-6 shadow-card sm:flex-row sm:items-center ${s.soft} border-current ${s.text}`}>
         <StatusMark status={verdict.overall} size="lg" />
         <div className="flex-1">
-          <p className="text-sm font-bold uppercase tracking-[0.18em]">Recommendation · {STATUS_LABEL[verdict.overall]}</p>
-          <h2 id="verdict-title" className="font-display text-3xl font-semibold text-ink sm:text-4xl">
+          <p className="text-sm font-bold uppercase tracking-wide">Recommendation · {STATUS_LABEL[verdict.overall]}</p>
+          <h2 id="verdict-title" className="text-2xl font-semibold text-ink">
             {copy.title}
           </h2>
           <p className="text-ink-soft">{copy.body}</p>
@@ -62,7 +64,7 @@ export function VerdictView({
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <figure className="rise self-start rounded-2xl border-2 border-rule bg-card p-3 shadow-card" style={{ animationDelay: "80ms" }}>
+        <figure className="self-start rounded-lg border border-border bg-surface p-3 shadow-card">
           {/* eslint-disable-next-line @next/next/no-img-element -- object URL from the user's upload */}
           <img src={imageUrl} alt="The label you uploaded" className="w-full rounded-lg" />
           <figcaption className="mt-2 text-center text-sm text-ink-faint">
@@ -71,25 +73,25 @@ export function VerdictView({
         </figure>
 
         <ol className="flex flex-col gap-3" aria-label="Field by field results">
-          {verdict.fields.map((f, i) => (
-            <FieldRow key={f.field} result={f} index={i} />
+          {verdict.fields.map((f) => (
+            <FieldRow key={f.field} result={f} />
           ))}
         </ol>
       </div>
 
-      <footer className="flex flex-col gap-4 rounded-2xl border-2 border-rule bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-ink-soft">
           <strong className="text-ink">This is a recommendation.</strong> Nothing is approved or rejected until you decide.
         </p>
         <div className="flex flex-wrap gap-3">
           <button type="button" onClick={() => window.print()} className="btn-secondary">
-            <span aria-hidden="true">🖨 </span>Print or save as PDF
+            <Printer size={16} aria-hidden="true" />Print or save as PDF
           </button>
           <button type="button" onClick={onEdit} className="btn-secondary">
-            <span aria-hidden="true">✎ </span>Change details
+            <Pencil size={16} aria-hidden="true" />Change details
           </button>
           <button type="button" onClick={onRestart} className="btn-primary">
-            <span aria-hidden="true">↻ </span>Review another label
+            <RotateCcw size={16} aria-hidden="true" />Review another label
           </button>
         </div>
       </footer>
@@ -99,25 +101,24 @@ export function VerdictView({
 
 function Count({ n, label }: { n: number; label: string }) {
   return (
-    <div className="rounded-xl bg-card/70 px-2 py-2">
+    <div className="rounded-md bg-surface/70 px-2 py-2">
       <dt className="text-xs font-bold uppercase tracking-wider text-ink-faint">{label}</dt>
-      <dd className="font-display text-2xl font-semibold">{n}</dd>
+      <dd className="text-xl font-semibold">{n}</dd>
     </div>
   );
 }
 
-function FieldRow({ result, index }: { result: FieldResult; index: number }) {
+function FieldRow({ result }: { result: FieldResult }) {
   const s = statusStyles(result.status, result.notApplicable);
   const word = result.notApplicable ? "Not applicable" : STATUS_LABEL[result.status];
   return (
     <li
-      className={`rise flex gap-4 rounded-2xl border-2 border-rule bg-card p-4 shadow-card ${result.notApplicable ? "opacity-80" : ""}`}
-      style={{ animationDelay: `${120 + index * 60}ms` }}
+      className={`flex gap-4 rounded-lg border border-border bg-surface p-4 shadow-card ${result.notApplicable ? "opacity-80" : ""}`}
     >
       <StatusMark status={result.status} notApplicable={result.notApplicable} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-          <h3 className="font-display text-xl font-semibold">{LABEL_FIELD_NAMES[result.field]}</h3>
+          <h3 className="text-base font-semibold">{LABEL_FIELD_NAMES[result.field]}</h3>
           <span className={`text-sm font-bold uppercase tracking-wider ${s.text}`}>{word}</span>
         </div>
         <p className="text-ink">{result.reason}</p>

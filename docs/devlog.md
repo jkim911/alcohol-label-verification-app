@@ -962,3 +962,64 @@ than presenting 5 seconds as guaranteed. If it mattered in production, the
 levers would be: warm the function (provisioned concurrency), lower batch
 concurrency so fewer calls contend, and show the per-label time in the
 table — which it already does.
+
+---
+
+## Design refresh — 2026-09-08 — from "generated" to compliance SaaS
+
+A review of the visual language named the tells that made the app read as
+AI-generated rather than as a tool an ops team lives in: an ornate display
+serif (Fraunces) on every heading, a cream-and-oxblood boutique palette with
+gradient washes, emoji standing in for icons, pill buttons with thick
+borders and a hover bounce, floaty shadows, landing-page type sizes, and
+staggered "rise" entrances. The direction chosen: clean compliance SaaS —
+slate/white, one blue accent, one sans-serif, sharp corners, real icons,
+denser and quieter. This was a visual pass only; nothing about the
+three-state model, the matchers, the extraction call, the copy, or the
+accessibility behaviours changed.
+
+What changed, and why each matters:
+
+- **One typeface.** Fraunces is gone; Public Sans (USWDS, the U.S.
+  government's own face) is used for headings and body. `font-display`
+  utilities were removed rather than aliased so nothing silently keeps a
+  second voice.
+- **Type scale.** The home page title dropped from hero size (2.6–3.75 rem)
+  to a page title (1.875–2.25 rem); screen titles from 2.25–3 rem to
+  1.5–1.875 rem; section headings to 1.125 rem. Base font size 16 px (was
+  18). Eyebrow labels use normal wide tracking instead of 0.2 em.
+- **Tokens.** The `@theme` block was replaced wholesale (bg, surface,
+  surface-muted, ink ×3, border ×2, accent ×3, three status pairs) and
+  every old class name was renamed across the components in one regex
+  pass — `paper→bg`, `card→surface`, `rule→border`, `oxblood→accent` —
+  with `shadow-card` deliberately excluded from the `card` rename. The two
+  radial gradients behind the page are gone; the body is a flat `bg`.
+- **Contrast re-check.** With the new values: accent on white 5.1:1, white
+  on each status colour ≥ 5.0:1, faint text 4.6–4.8:1. One miss: the
+  suggested fail red (#dc2626) on its soft background was ~4.4:1, under the
+  4.5:1 bar the app holds itself to, so it's one step darker (#b91c1c,
+  ~6:1). Review (#b45309) on its soft background is 4.9:1; pass 4.8:1.
+- **Shape.** Buttons: 0.5 rem radius, 1 px border, 40 px min height, no
+  hover transform. Inputs: 0.5 rem radius, 1 px border, 44 px. Cards:
+  `rounded-lg border` with a 1–3 px shadow instead of a 32 px one. Drop
+  zones: 2 px dashed. Filter chips stay pill-shaped on purpose — small
+  status/filter chips are a genuine enterprise pattern; it was pill
+  *buttons* and *cards* that read as templated.
+- **Motion.** The 450 ms translate-and-fade became a 150 ms opacity fade,
+  kept only on the verdict banner and the unreadable/error notices (where
+  it accompanies the focus move); the per-card stagger is gone. The
+  indeterminate bar is 2 px, accent-coloured, linear.
+- **Icons.** `lucide-react` replaced every emoji, one for one (spirits
+  `GlassWater`, wine `Wine`, beer `Beer`, upload `Upload`, CSV `FileText`,
+  photos `Images`, sample `FlaskConical`, run `Play`, export `Download`,
+  restart `RotateCcw`, edit `Pencil`, print `Printer`, stop `Square`,
+  compare `ScanSearch`, retake `Camera`, home cards `Tag`/`Layers`). Each
+  sits inside the same `aria-hidden` slot next to its text label, so the
+  icon-plus-word rule is unchanged. `StatusMark` now renders `Check`,
+  `TriangleAlert`, `X`, and `Minus` at fixed pixel sizes inside the
+  coloured circle — matched stroke weights fix the uneven optical weight
+  the unicode glyphs had at 36 px.
+
+Verified after the pass: 74 tests, lint, type-check, production build;
+`/`, `/single` (including a full review and the print view), and `/batch`
+at 375 px and 1280 px.

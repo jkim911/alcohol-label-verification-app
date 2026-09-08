@@ -1,5 +1,7 @@
 "use client";
 
+import { Beer, Camera, GlassWater, Image as ImageIcon, type LucideIcon, ScanSearch, Upload, Wine } from "lucide-react";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { describeResize, resizeImageForUpload } from "@/lib/image-resize";
@@ -36,10 +38,10 @@ type Phase =
   | { kind: "unreadable"; reason: string; extraction: LabelExtraction }
   | { kind: "error"; message: string };
 
-const PRODUCT_TYPES: Array<{ value: ProductType; label: string; icon: string }> = [
-  { value: "spirits", label: "Spirits", icon: "🥃" },
-  { value: "wine", label: "Wine", icon: "🍷" },
-  { value: "beer", label: "Beer / malt", icon: "🍺" },
+const PRODUCT_TYPES: Array<{ value: ProductType; label: string; Icon: LucideIcon }> = [
+  { value: "spirits", label: "Spirits", Icon: GlassWater },
+  { value: "wine", label: "Wine", Icon: Wine },
+  { value: "beer", label: "Beer / malt", Icon: Beer },
 ];
 
 export function ReviewSingle({ samples }: { samples: Sample[] }) {
@@ -196,10 +198,10 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
     <main id="main" className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Link href="/" className="text-sm font-bold uppercase tracking-[0.2em] text-oxblood hover:underline">
+          <Link href="/" className="text-sm font-bold uppercase tracking-wide text-accent hover:underline">
             ← Alcohol Verification App
           </Link>
-          <h1 className="font-display text-4xl font-semibold leading-tight sm:text-5xl">Review one label</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Review one label</h1>
         </div>
         {phase.kind === "input" && (
           <label className="flex w-full flex-col gap-1 text-sm font-bold sm:w-auto">
@@ -234,9 +236,9 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
       )}
 
       {phase.kind === "unreadable" && (
-        <section ref={resultRef} tabIndex={-1} aria-labelledby="unreadable-title" className="rise flex flex-col gap-4 rounded-2xl border-2 border-review bg-review-soft p-6 shadow-card outline-none">
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-review">No verdict · Photo unreadable</p>
-          <h2 id="unreadable-title" className="font-display text-3xl font-semibold">We couldn&apos;t read this label clearly.</h2>
+        <section ref={resultRef} tabIndex={-1} aria-labelledby="unreadable-title" className="rise flex flex-col gap-4 rounded-lg border border-review bg-review-soft p-6 shadow-card outline-none">
+          <p className="text-sm font-bold uppercase tracking-wide text-review">No verdict · Photo unreadable</p>
+          <h2 id="unreadable-title" className="text-xl font-semibold">We couldn&apos;t read this label clearly.</h2>
           <p className="text-ink">{phase.reason}</p>
           <p className="text-ink-soft">
             Try a straighter, better-lit photo of just the label, with the text filling the frame. Nothing was
@@ -253,7 +255,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
                 setPhase({ kind: "input" });
               }}
             >
-              <span aria-hidden="true">📷 </span>Try a different photo
+              <Camera size={16} aria-hidden="true" />Try a different photo
             </button>
             <button type="button" className="btn-secondary" onClick={() => setPhase({ kind: "input" })}>
               Back to the form
@@ -263,7 +265,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
       )}
 
       {phase.kind === "error" && (
-        <div ref={resultRef} tabIndex={-1} role="alert" className="rise flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-fail bg-fail-soft p-5 outline-none">
+        <div ref={resultRef} tabIndex={-1} role="alert" className="rise flex flex-wrap items-center justify-between gap-4 rounded-lg border border-fail bg-fail-soft p-5 outline-none">
           <p className="text-ink">
             <strong>Couldn&apos;t complete the review.</strong> {phase.message}
           </p>
@@ -283,15 +285,15 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
         >
           {/* ---- Label photo ---- */}
           <section aria-labelledby="photo-title" className="flex flex-col gap-3">
-            <h2 id="photo-title" className="font-display text-2xl font-semibold">
+            <h2 id="photo-title" className="text-lg font-semibold">
               1. The label photo
             </h2>
             <div
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
               onDrop={(e) => { e.preventDefault(); setDragging(false); acceptFile(e.dataTransfer.files?.[0]); }}
-              className={`flex min-h-80 flex-col items-center justify-center gap-3 rounded-2xl border-4 border-dashed p-4 text-center transition ${
-                dragging ? "border-oxblood bg-oxblood-soft" : "border-rule-strong bg-card"
+              className={`flex min-h-80 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-4 text-center transition ${
+                dragging ? "border-accent bg-accent-soft" : "border-border-strong bg-surface"
               }`}
             >
               {previewUrl ? (
@@ -303,13 +305,13 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
                 </>
               ) : (
                 <>
-                  <span aria-hidden="true" className="text-5xl">🏷️</span>
+                  <ImageIcon size={40} aria-hidden="true" className="text-ink-faint" strokeWidth={1.5} />
                   <p className="text-lg font-bold">Drop the label photo here</p>
                   <p className="text-ink-soft">or</p>
                 </>
               )}
               <button type="button" className="btn-secondary" onClick={() => fileInput.current?.click()}>
-                <span aria-hidden="true">📁 </span>
+                <Upload size={16} aria-hidden="true" />
                 {previewUrl ? "Choose a different photo" : "Choose a photo"}
               </button>
               <input
@@ -324,7 +326,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
 
           {/* ---- Application details ---- */}
           <section aria-labelledby="app-title" className="flex flex-col gap-5">
-            <h2 id="app-title" className="font-display text-2xl font-semibold">
+            <h2 id="app-title" className="text-lg font-semibold">
               2. What the application says
             </h2>
 
@@ -334,8 +336,8 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
                 {PRODUCT_TYPES.map((p) => (
                   <label
                     key={p.value}
-                    className={`flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-2 font-bold transition ${
-                      form.productType === p.value ? "border-oxblood bg-oxblood-soft text-oxblood" : "border-rule-strong bg-card"
+                    className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-2 text-sm font-semibold transition ${
+                      form.productType === p.value ? "border-accent bg-accent-soft text-accent" : "border-border-strong bg-surface"
                     }`}
                   >
                     <input
@@ -346,7 +348,7 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
                       onChange={() => update("productType", p.value)}
                       className="sr-only"
                     />
-                    <span aria-hidden="true">{p.icon}</span>
+                    <p.Icon size={18} aria-hidden="true" />
                     {p.label}
                   </label>
                 ))}
@@ -365,8 +367,8 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
               <p id="bottler-hint" className="field-hint">Name, street, city, state ZIP — as on the application.</p>
             </div>
 
-            <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 border-rule-strong bg-card px-4 font-bold">
-              <input type="checkbox" className="h-6 w-6 accent-oxblood" checked={form.isImport} onChange={(e) => update("isImport", e.target.checked)} />
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border-strong bg-surface px-3 text-sm font-semibold">
+              <input type="checkbox" className="h-5 w-5 accent-accent" checked={form.isImport} onChange={(e) => update("isImport", e.target.checked)} />
               This product is imported
             </label>
             {form.isImport && (
@@ -374,20 +376,20 @@ export function ReviewSingle({ samples }: { samples: Sample[] }) {
             )}
 
             {/* ---- Compare ---- */}
-            <div className="mt-2 flex flex-col gap-3 rounded-2xl border-2 border-rule bg-card p-5 shadow-card">
-              <h2 className="font-display text-2xl font-semibold">3. Compare</h2>
+            <div className="mt-2 flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-card">
+              <h2 className="text-lg font-semibold">3. Compare</h2>
               {phase.kind === "reviewing" ? (
                 <div role="status" aria-live="polite" className="flex flex-col gap-3">
                   <p className="text-lg font-bold">Reading the label… {elapsed.toFixed(1)} s</p>
-                  <div className="h-3 overflow-hidden rounded-full bg-paper-deep">
-                    <div className="sweep h-full w-1/3 rounded-full bg-oxblood" />
+                  <div className="h-0.5 overflow-hidden bg-surface-muted">
+                    <div className="sweep h-full w-1/3 bg-accent" />
                   </div>
                   <p className="text-sm text-ink-soft">Usually takes about four seconds. Nothing is decided until you see the results.</p>
                 </div>
               ) : (
                 <>
                   <button type="submit" className="btn-primary w-full text-lg" disabled={!canCompare}>
-                    <span aria-hidden="true">⇄ </span>Compare label to application
+                    <ScanSearch size={18} aria-hidden="true" />Compare label to application
                   </button>
                   <p className="text-sm text-ink-soft" aria-live="polite">
                     {missing.length ? `Still needed: ${missing.join(", ")}.` : "Ready. Takes about four seconds."}
