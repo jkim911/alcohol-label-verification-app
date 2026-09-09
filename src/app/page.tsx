@@ -11,7 +11,7 @@ export default function Home() {
         </h1>
         <p className="max-w-2xl text-base leading-relaxed text-ink-soft">
           Upload a photo of the label and the details from the application. Each of the seven TTB fields gets a
-          Pass, Needs review, or Fail with a plain-English reason. You make the final call.
+          Pass, Needs review, or Fail with a plain-English reason.
         </p>
       </header>
 
@@ -23,7 +23,6 @@ export default function Home() {
           <span className="flex items-center gap-2 text-lg font-semibold">
             <Tag size={20} aria-hidden="true" className="text-accent" />Review one label
           </span>
-          <span className="text-ink-soft">Upload a label, enter the application, get a verdict.</span>
           <span className="mt-2 font-bold text-accent group-hover:underline">Start a review →</span>
         </Link>
         <Link
@@ -38,7 +37,7 @@ export default function Home() {
         </Link>
       </nav>
 
-      <p className="text-sm text-ink-faint">A prototype for TTB label review. Nothing you upload is stored.</p>
+      <p className="text-sm text-ink-faint">Uploads are not stored.</p>
     </main>
   );
 }
